@@ -126,6 +126,7 @@
         <circle cx="12" cy="16.4" r="0.7" fill="currentColor" stroke="none"/>
       </symbol>
       <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+      <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
       <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
       <symbol id="i-subtask" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.4"/><circle cx="4.5" cy="12" r="1.4"/><circle cx="4.5" cy="18" r="1.4"/></symbol>
     </defs>
@@ -137,6 +138,11 @@
     <div class="orb orb-2"></div>
     <div class="orb orb-3"></div>
   </div>
+
+  <!-- Mobile menu trigger (outside sidebar so it stays reachable when drawer is hidden) -->
+  <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Open menu" title="菜单">
+    <svg class="ico" aria-hidden="true"><use href="#i-menu"/></svg>
+  </button>
 
   <!-- Sidebar navigation -->
   <nav class="sidebar" id="sidebar">
@@ -198,6 +204,9 @@
       <span class="sync-dot" id="sync-dot"></span>
     </button>
   </nav>
+
+  <!-- Backdrop for the mobile sidebar drawer -->
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
   <!-- Main content -->
   <main class="main-content">

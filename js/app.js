@@ -79,13 +79,27 @@ const App = (function () {
   function initSidebarToggle() {
     var sidebar = document.getElementById('sidebar');
     var btn = document.getElementById('sidebar-toggle');
-    if (!sidebar || !btn) return;
+    var menuBtn = document.getElementById('mobile-menu-btn');
+    var backdrop = document.getElementById('sidebar-backdrop');
     var KEY = 'bloom_sidebar_collapsed';
-    if (localStorage.getItem(KEY) === '1') sidebar.classList.add('sidebar-collapsed');
-    btn.addEventListener('click', function () {
+    if (sidebar && localStorage.getItem(KEY) === '1') sidebar.classList.add('sidebar-collapsed');
+    if (btn) btn.addEventListener('click', function () {
       sidebar.classList.toggle('sidebar-collapsed');
       localStorage.setItem(KEY, sidebar.classList.contains('sidebar-collapsed') ? '1' : '0');
     });
+    function openDrawer() { if (sidebar) sidebar.classList.add('sidebar-open'); if (backdrop) backdrop.classList.add('show'); }
+    function closeDrawer() { if (sidebar) sidebar.classList.remove('sidebar-open'); if (backdrop) backdrop.classList.remove('show'); }
+    if (menuBtn) menuBtn.addEventListener('click', openDrawer);
+    if (backdrop) backdrop.addEventListener('click', closeDrawer);
+    // On mobile, close the drawer after picking a nav item or opening sync.
+    if (sidebar) {
+      var navItems = sidebar.querySelectorAll('.nav-item');
+      for (var i = 0; i < navItems.length; i++) {
+        navItems[i].addEventListener('click', function () { if (window.innerWidth <= 900) closeDrawer(); });
+      }
+      var syncBtn = document.getElementById('open-sync-modal');
+      if (syncBtn) syncBtn.addEventListener('click', function () { if (window.innerWidth <= 900) closeDrawer(); });
+    }
   }
   function boot() {
     renderDate();
@@ -191,7 +205,9 @@ const App = (function () {
       if (window.Sync) {
         Sync.saveConfig(c);
         if (c.enabled) {
-          Sync.manualSync().then(function () { location.reload(); });
+          // Adopt the cloud as the source of truth on first enable, so any local
+          // seed/demo data is replaced by real cloud data instead of overwriting it.
+          Sync.forcePull().then(function () { location.reload(); });
         } else {
           toast('同步配置已保存（未启用）', 'info');
           if (modal) modal.hidden = true;

@@ -20,6 +20,7 @@ const Sync = (function () {
   var pushQueue = {};        // origKey -> {value, ts}
   var _origSetItem = Storage.prototype.setItem;
   var intercepting = false;  // true while writing local from cloud (avoid loop)
+  var suppress = false;     // true while writing local seed data (don't push it)
 
   function prefKey(k) { return 's_' + (cfg ? cfg.syncCode : '') + '|' + k; }
   function unprefKey(pk) { var i = pk.indexOf('|'); return i < 0 ? pk : pk.slice(i + 1); }
@@ -124,11 +125,38 @@ const Sync = (function () {
   }
 
   function schedulePush(key, value) {
+    if (suppress) return;     // seed writes must never be uploaded
     if (intercepting) return;
     if (!isEnabled()) return;
     pushQueue[key] = { value: value, ts: Date.now() };
     if (pushTimer) clearTimeout(pushTimer);
     pushTimer = setTimeout(function () { flush(); }, PUSH_DEBOUNCE);
+  }
+
+  function setSuppress(v) { suppress = v; }
+
+  // Adopt cloud as the source of truth. Used when sync is first enabled on a
+  // device that may still hold seed/demo local data, so local never overwrites
+  // the real cloud data. Overwrites local unconditionally for our namespace.
+  function forcePull() {
+    if (!isEnabled()) return Promise.resolve();
+    setStatus('syncing');
+    var url = apiURL() + '?select=key,value,updated_at';
+    var ctrl = ('AbortController' in window) ? new AbortController() : null;
+    var opt = { headers: hdrs(), signal: ctrl ? ctrl.signal : undefined };
+    return withTimeout(fetch(url, opt), FETCH_TIMEOUT).then(function (r) {
+      if (!r.ok) throw new Error('forcePull ' + r.status);
+      return r.json();
+    }).then(function (rows) {
+      var prefix = 's_' + cfg.syncCode + '|';
+      for (var i = 0; i < rows.length; i++) {
+        if (rows[i].key.indexOf(prefix) !== 0) continue;
+        var orig = unprefKey(rows[i].key);
+        var cloudTs = Date.parse(rows[i].updated_at) || 0;
+        writeLocal(orig, rows[i].value, cloudTs);
+      }
+      setStatus('idle');
+    }).catch(function () { setStatus('offline'); });
   }
 
   function init(afterBoot) {
@@ -166,10 +194,12 @@ const Sync = (function () {
     init: init,
     onStatus: onStatus,
     manualSync: manualSync,
+    forcePull: forcePull,
     saveConfig: saveConfig,
     getConfig: getConfig,
     getStatus: getStatus,
     genCode: genCode,
+    setSuppress: setSuppress,
     isEnabled: isEnabled
   };
 })();

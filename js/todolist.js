@@ -118,6 +118,13 @@ const TodoList = (function () {
      archive and dashboard have meaningful content.
   */
   function seedDemoData() {
+    // If a sync account is configured, the cloud is authoritative — never
+    // synthesize local demo data (it would otherwise get pushed over real cloud data).
+    if (window.Sync && Sync.getConfig && Sync.getConfig()) return;
+    // Never let the seed writes be queued for upload (so demo can't overwrite cloud).
+    var _suppressSeed = !!(window.Sync && Sync.setSuppress);
+    if (_suppressSeed) Sync.setSuppress(true);
+
     // Skip if user already has tasks, or seed already ran.
     if (todos.length > 0) return;
     if (localStorage.getItem(SEED_FLAG_KEY) === '1') return;
@@ -222,6 +229,7 @@ const TodoList = (function () {
     todos = seeded;
     save();
     try { localStorage.setItem(SEED_FLAG_KEY, '1'); } catch (e) { /* ignore */ }
+    if (_suppressSeed) Sync.setSuppress(false);
   }
 
   /* ---- CRUD ---- */
