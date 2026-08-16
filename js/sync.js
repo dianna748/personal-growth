@@ -46,12 +46,17 @@ const Sync = (function () {
 
   function apiURL() { return cfg.url.replace(/\/+$/, '') + '/rest/v1/' + TABLE; }
   function hdrs() {
-    return {
+    var h = {
       'apikey': cfg.anonKey,
-      'Authorization': 'Bearer ' + cfg.anonKey,
       'Content-Type': 'application/json',
       'Prefer': 'resolution=merge-duplicates'
     };
+    // 旧版 anon key 是 JWT(eyJ...)，可走 Bearer；新版 publishable key(sb_publishable_) 不是 JWT，
+    // 只能走 apikey 头，塞进 Bearer 会被 Supabase 拒绝。故仅对 JWT 补 Bearer 头。
+    if (cfg.anonKey && cfg.anonKey.indexOf('eyJ') === 0) {
+      h['Authorization'] = 'Bearer ' + cfg.anonKey;
+    }
+    return h;
   }
   function withTimeout(p, ms) {
     return new Promise(function (res, rej) {
@@ -168,3 +173,6 @@ const Sync = (function () {
     isEnabled: isEnabled
   };
 })();
+// 关键修复：顶层 const Sync 不会挂到 window 上，导致 app.js 里所有 `if (window.Sync)` 守卫都为 false、
+// 同步功能形同虚设（点保存无反应、状态卡在“未启用”）。显式挂到 window 即可。
+window.Sync = Sync;
