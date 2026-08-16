@@ -3703,6 +3703,19 @@ html[lang^="zh"] .panel-sub-title .font-zh {
     padding: calc(env(safe-area-inset-top) + 60px) 14px calc(env(safe-area-inset-bottom) + 78px) 4px;
   }
 
+  /* Safety net — !important so no leftover rule can re-push content right.
+     If you still see big left margin after hard-refresh, the browser is
+     caching old CSS (iOS Safari is notoriously sticky). */
+  html body .main-content,
+  html[lang^="zh"] body .main-content {
+    margin-left: 0 !important;
+    padding-left: 2px !important;
+  }
+  html body .module,
+  html[lang^="zh"] body .module {
+    padding-left: 4px !important;
+  }
+
   /* Abandon the sidebar/drawer on mobile — use an app-style bottom tab bar instead */
   .sidebar,
   .mobile-menu-btn,
