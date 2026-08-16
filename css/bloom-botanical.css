@@ -2278,64 +2278,45 @@ html[lang^="zh"] .module-kicker {
 }
 
 html[lang^="zh"] .date-group .todo-main {
-  display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) auto auto auto auto auto;
-  grid-template-rows: auto auto;
-  column-gap: 10px;
-  row-gap: 7px;
+  display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  column-gap: 10px;
+  row-gap: 6px;
 }
 
 html[lang^="zh"] .date-group .todo-checkbox {
-  grid-column: 1;
-  grid-row: 1;
+  flex-shrink: 0;
 }
 
 html[lang^="zh"] .date-group .todo-text {
-  grid-column: 2 / -1;
-  grid-row: 1;
+  flex: 1 1 auto;
   min-width: 0;
-  max-width: none;
-  overflow-wrap: anywhere;
   line-height: 1.5;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
-html[lang^="zh"] .date-group .todo-roll-badge,
-html[lang^="zh"] .date-group .todo-added-tag,
-html[lang^="zh"] .date-group .todo-cat-tag,
-html[lang^="zh"] .date-group .todo-subtask-pill,
-html[lang^="zh"] .date-group .todo-subtask-btn,
-html[lang^="zh"] .date-group .todo-edit-btn,
-html[lang^="zh"] .date-group .todo-delete {
-  grid-row: 2;
+html[lang^="zh"] .date-group .todo-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
-html[lang^="zh"] .date-group .todo-roll-badge {
-  grid-column: 2;
+html[lang^="zh"] .date-group .todo-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity .18s ease;
 }
 
-html[lang^="zh"] .date-group .todo-added-tag {
-  grid-column: 3;
-}
-
-html[lang^="zh"] .date-group .todo-cat-tag {
-  grid-column: 4;
-}
-
-html[lang^="zh"] .date-group .todo-subtask-pill {
-  grid-column: 5;
-}
-
-html[lang^="zh"] .date-group .todo-subtask-btn {
-  grid-column: 6;
-}
-
-html[lang^="zh"] .date-group .todo-edit-btn {
-  grid-column: 7;
-}
-
-html[lang^="zh"] .date-group .todo-delete {
-  grid-column: 8;
+html[lang^="zh"] .date-group .todo-item:hover .todo-actions,
+html[lang^="zh"] .date-group .todo-item:focus-within .todo-actions {
+  opacity: 1;
 }
 
 html[lang^="zh"] .date-group .subtask-area {
@@ -2352,26 +2333,6 @@ html[lang^="zh"] .date-group .subtask-area {
 
   #section-daily > .heatmap-card .heatmap-scale {
     margin-top: 0;
-  }
-
-  html[lang^="zh"] .date-group .todo-main {
-    grid-template-columns: 28px minmax(0, 1fr) auto auto;
-    column-gap: 8px;
-  }
-
-  html[lang^="zh"] .date-group .todo-text {
-    grid-column: 2 / -1;
-  }
-
-  html[lang^="zh"] .date-group .todo-roll-badge,
-  html[lang^="zh"] .date-group .todo-added-tag,
-  html[lang^="zh"] .date-group .todo-cat-tag,
-  html[lang^="zh"] .date-group .todo-subtask-pill,
-  html[lang^="zh"] .date-group .todo-subtask-btn,
-  html[lang^="zh"] .date-group .todo-edit-btn,
-  html[lang^="zh"] .date-group .todo-delete {
-    grid-row: 2;
-    grid-column: auto;
   }
 }
 
@@ -3798,6 +3759,148 @@ html[lang^="zh"] .panel-sub-title .font-zh {
   .import-btn { height: 42px; }
   .date-navigator { gap: 8px; }
   .date-display { min-width: 0; }
+
+  /* ===== Date navigator: split into 2 rows to relieve cramped row ===== */
+  .date-navigator {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  .date-nav-btn,
+  .date-chip,
+  .date-today-btn { flex-shrink: 0; }
+  .date-navigator .date-today-btn { order: 1; }
+  .date-navigator #date-prev    { order: 2; }
+  .date-navigator #date-chip    { order: 3; }
+  .date-navigator #date-next    { order: 4; }
+  .date-navigator .date-nav-sep { display: none; }
+  .date-navigator .todo-history-btn {
+    order: 10;
+    margin-left: auto;
+    padding: 0 14px;
+  }
+  .date-navigator .import-btn {
+    order: 11;
+  }
+
+  /* ===== Todo row: text on left, meta top-right, actions swipe-revealed ===== */
+  .date-group .todo-item {
+    position: relative;
+    overflow: hidden;
+    border-radius: 14px;
+  }
+  .date-group .todo-main {
+    display: flex !important;
+    align-items: center;
+    flex-wrap: wrap;
+    column-gap: 12px;
+    row-gap: 4px;
+    padding: 14px 16px 14px 22px;
+  }
+  .date-group .todo-checkbox { flex-shrink: 0; }
+
+  .date-group .todo-text {
+    flex: 1 1 100%;
+    min-width: 0;
+    padding-right: 0;
+    padding-top: 26px; /* clear top-right meta block */
+    margin-top: -22px;
+    line-height: 1.42;
+    font-size: 15px;
+    color: var(--bloom-ink);
+    overflow-wrap: break-word;
+    word-break: normal;
+    /* Limit to a comfortable 3 lines so cards don't grow huge */
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .date-group .todo-item.completed .todo-text {
+    text-decoration: line-through;
+    color: var(--bloom-ink-soft);
+  }
+
+  /* Meta block floats to top-right (date-added, category, subtask-pill) */
+  .date-group .todo-meta {
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 56vw;
+    flex-shrink: 0;
+    z-index: 2;
+    line-height: 1;
+  }
+  .date-group .todo-meta .todo-roll-badge,
+  .date-group .todo-meta .todo-added-tag,
+  .date-group .todo-meta .todo-cat-tag,
+  .date-group .todo-meta .todo-subtask-pill {
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  /* Action strip: hidden off-screen by default, slides in on `.swiped` */
+  .date-group .todo-actions {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: -144px;
+    width: 144px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    padding: 0 16px 0 24px;
+    opacity: 1; /* override desktop :hover-driven opacity */
+    background: linear-gradient(to left, rgba(232, 226, 214, 0.96), rgba(232, 226, 214, 0));
+    transition: right .22s cubic-bezier(.22, .61, .36, 1);
+    z-index: 3;
+    pointer-events: none;
+  }
+  .date-group .todo-item.swiped > .todo-main .todo-actions,
+  .date-group .todo-item.swiped .todo-actions {
+    right: 0;
+    pointer-events: auto;
+  }
+  .date-group .todo-actions .todo-subtask-btn,
+  .date-group .todo-actions .todo-edit-btn,
+  .date-group .todo-actions .todo-delete {
+    opacity: 1 !important;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(37, 72, 61, 0.12);
+    color: var(--bloom-ink-soft);
+    margin: 0;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .date-group .todo-actions .todo-subtask-btn { color: var(--bloom-moss); }
+  .date-group .todo-actions .todo-edit-btn   { color: var(--bloom-moss); }
+  .date-group .todo-actions .todo-delete {
+    background: rgba(189, 115, 91, 0.16);
+    color: var(--bloom-terracotta);
+    border-color: rgba(189, 115, 91, 0.25);
+  }
+
+  /* Hint indicator that the row is swipeable (subtle right-edge fade) */
+  .date-group .todo-item::after {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    right: 0;
+    width: 18px;
+    background: linear-gradient(to right, transparent, rgba(37, 72, 61, 0.06));
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.7;
+  }
+  .date-group .todo-item.swiped::after { opacity: 0; }
 }
 
 @media (max-width: 520px) {

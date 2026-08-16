@@ -858,25 +858,35 @@ const TodoList = (function () {
       '<button class="subtask-add-btn" onclick="TodoList.commitSubtask(event, ' + todo.id + ')">' + escapeHtml(I18n.t('todo.addSubtaskShort')) + '</button>' +
     '</div>';
 
+    // Group meta (date-added + category + subtask progress) so mobile can
+    // float it to top-right via absolute positioning. Hidden when empty.
+    var metaParts = badge + addedTag +
+      '<span class="todo-cat-tag ' + todo.category + '">' + escapeHtml(catLabel(todo.category)) + '</span>' +
+      progPill;
+    var metaBlock = '<div class="todo-meta">' + metaParts + '</div>';
+
+    // Group the three action buttons so mobile can swipe-reveal them as a
+    // unit (desktop still reveals them on hover via existing rules).
+    var actionsBlock = '<div class="todo-actions">' +
+      '<button class="todo-subtask-btn" onclick="TodoList.startAddSubtask(' + todo.id + ')" title="' + escapeHtml(I18n.t('todo.addSubtask')) + '">' +
+        '<svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg>' +
+      '</button>' +
+      '<button class="todo-edit-btn" onclick="TodoList.startEdit(' + todo.id + ')" title="Edit">' +
+        '<svg class="ico" aria-hidden="true"><use href="#i-pencil"/></svg>' +
+      '</button>' +
+      '<button class="todo-delete" onclick="TodoList.remove(' + todo.id + ')" title="Delete">' +
+        '<svg class="ico" aria-hidden="true"><use href="#i-close"/></svg>' +
+      '</button>' +
+    '</div>';
+
     return '<div class="todo-item' + completedClass + rolledClass + ' entering" data-todo-id="' + todo.id + '" data-cat="' + todo.category + '">' +
       '<div class="todo-main">' +
         '<div class="todo-checkbox" onclick="TodoList.toggle(' + todo.id + ')">' +
           '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' +
         '</div>' +
         '<span class="todo-text" data-todo-id="' + todo.id + '">' + escapeHtml(todo.text) + '</span>' +
-        badge +
-        addedTag +
-        '<span class="todo-cat-tag ' + todo.category + '">' + escapeHtml(catLabel(todo.category)) + '</span>' +
-        progPill +
-        '<button class="todo-subtask-btn" onclick="TodoList.startAddSubtask(' + todo.id + ')" title="' + escapeHtml(I18n.t('todo.addSubtask')) + '">' +
-          '<svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg>' +
-        '</button>' +
-        '<button class="todo-edit-btn" onclick="TodoList.startEdit(' + todo.id + ')" title="Edit">' +
-          '<svg class="ico" aria-hidden="true"><use href="#i-pencil"/></svg>' +
-        '</button>' +
-        '<button class="todo-delete" onclick="TodoList.remove(' + todo.id + ')" title="Delete">' +
-          '<svg class="ico" aria-hidden="true"><use href="#i-close"/></svg>' +
-        '</button>' +
+        metaBlock +
+        actionsBlock +
       '</div>' +
       '<div class="subtask-area' + (todo.subtasks && todo.subtasks.length ? ' has-subs' : '') + '">' +
         '<div class="subtask-list">' + subtaskHTML + '</div>' +
@@ -1507,6 +1517,55 @@ const TodoList = (function () {
     });
 
     renderCurrentView();
+
+    /* ---- Touch swipe: reveal todo-item actions on left swipe (mobile) ---- */
+    // Delegated: a single touchstart listener on the list container tracks
+    // each gesture so we can add/remove a `.swiped` class on the row.
+    var swipeContainer = document.getElementById('todo-grouped');
+    if (swipeContainer && !swipeContainer.dataset.swipeBound) {
+      swipeContainer.dataset.swipeBound = '1';
+      var startX = 0, startY = 0, activeItem = null, tracking = false;
+      swipeContainer.addEventListener('touchstart', function (e) {
+        var t = e.touches[0]; if (!t) return;
+        var item = e.target.closest && e.target.closest('.todo-item');
+        if (!item) return;
+        startX = t.clientX; startY = t.clientY;
+        activeItem = item; tracking = true;
+      }, { passive: true });
+      swipeContainer.addEventListener('touchmove', function (e) {
+        if (!tracking || !activeItem) return;
+        var t = e.touches[0]; if (!t) return;
+        var dx = t.clientX - startX, dy = t.clientY - startY;
+        if (Math.abs(dy) > Math.abs(dx)) { tracking = false; return; } // vertical scroll
+        if (dx < -40) activeItem.classList.add('swiped');
+        else if (dx > 40) activeItem.classList.remove('swiped');
+      }, { passive: true });
+      swipeContainer.addEventListener('touchend', function () {
+        tracking = false; activeItem = null;
+      }, { passive: true });
+      // Tap on checkbox/text removes .swiped (so re-tap works normally)
+      swipeContainer.addEventListener('click', function (e) {
+        var item = e.target.closest && e.target.closest('.todo-item');
+        if (item && item.classList.contains('swiped')) {
+          var tag = e.target.tagName;
+          // Keep swipe open only when the user is tapping inside the actions
+          // strip; otherwise collapse so taps on checkbox/text behave normally.
+          if (!e.target.closest('.todo-actions') && tag !== 'BUTTON') {
+            item.classList.remove('swiped');
+          }
+        }
+      });
+    }
+    // Tap outside any todo-item dismisses all open swipes
+    if (!document.documentElement.dataset.swipeDocBound) {
+      document.documentElement.dataset.swipeDocBound = '1';
+      document.addEventListener('click', function (e) {
+        if (!e.target.closest || !e.target.closest('.todo-item')) {
+          var open = document.querySelectorAll('.todo-item.swiped');
+          for (var oi = 0; oi < open.length; oi++) open[oi].classList.remove('swiped');
+        }
+      });
+    }
 
     // Re-render on language switch
     I18n.onChange(function () {
