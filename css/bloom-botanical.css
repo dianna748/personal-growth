@@ -3694,8 +3694,7 @@ html[lang^="zh"] .panel-sub-title .font-zh {
     max-width: none;
     min-height: 100vh;
     min-height: 100dvh;
-    padding-top: calc(env(safe-area-inset-top) + 60px);
-    padding-bottom: calc(env(safe-area-inset-bottom) + 70px);
+    padding: calc(env(safe-area-inset-top) + 60px) 14px calc(env(safe-area-inset-bottom) + 70px) 6px;
   }
 }
 
@@ -3799,7 +3798,7 @@ html[lang^="zh"] .panel-sub-title .font-zh {
   }
 
   /* Overflow & touch hardening */
-  .module { width: 100%; }
+  .module { width: 100%; padding: 18px 16px 30px 10px; }
   img, svg, video, table { max-width: 100%; }
   .article-body,
   .reading-card .article-body,
