@@ -3819,8 +3819,8 @@ html[lang^="zh"] .panel-sub-title .font-zh {
   .sidebar-sync .ico { width: 20px; height: 20px; margin: 0; }
 
   .main-content {
-    margin-left: 72px;
-    padding: calc(env(safe-area-inset-top) + 28px) 16px calc(env(safe-area-inset-bottom) + 84px);
+    margin-left: 0;
+    padding: calc(env(safe-area-inset-top) + 60px) 14px calc(env(safe-area-inset-bottom) + 78px) 4px;
   }
 
   /* Full-screen modal sheet on phone (app feel) */
