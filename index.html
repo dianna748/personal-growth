@@ -799,6 +799,26 @@
     </section>
   </main>
 
+  <!-- Mobile bottom tab bar (app-style nav; replaces the sidebar on phones) -->
+  <nav class="mobile-bottom-nav" id="mobile-bottom-nav" aria-label="Bottom navigation">
+    <button class="bottom-nav-item active" data-module="todolist" type="button">
+      <span class="bn-icon">☑</span>
+      <span class="bn-label">任务</span>
+    </button>
+    <button class="bottom-nav-item" data-module="english" type="button">
+      <span class="bn-icon">🇬🇧</span>
+      <span class="bn-label">英语</span>
+    </button>
+    <button class="bottom-nav-item" data-module="french" type="button">
+      <span class="bn-icon">🇫🇷</span>
+      <span class="bn-label">法语</span>
+    </button>
+    <button class="bottom-nav-item" id="bn-sync" type="button">
+      <span class="bn-icon">⟳</span>
+      <span class="bn-label">同步</span>
+    </button>
+  </nav>
+
   <!-- Toast notifications -->
   <div class="toast-container" id="toast-container"></div>
 

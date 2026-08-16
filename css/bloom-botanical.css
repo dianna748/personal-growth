@@ -3607,7 +3607,8 @@ html[lang^="zh"] .panel-sub-title .font-zh {
 /* Mobile-only controls: hidden on desktop, shown inside the mobile media query below.
    (Must come BEFORE the media query so the query's display rules can override on phones.) */
 .mobile-menu-btn,
-.sidebar-backdrop { display: none; }
+.sidebar-backdrop,
+.mobile-bottom-nav { display: none; }
 
 /* ============================================================
    Mobile app experience (phones & small tablets)
@@ -3694,8 +3695,47 @@ html[lang^="zh"] .panel-sub-title .font-zh {
     max-width: none;
     min-height: 100vh;
     min-height: 100dvh;
-    padding: calc(env(safe-area-inset-top) + 60px) 14px calc(env(safe-area-inset-bottom) + 70px) 6px;
+    padding: calc(env(safe-area-inset-top) + 60px) 14px calc(env(safe-area-inset-bottom) + 78px) 6px;
   }
+
+  /* Abandon the sidebar/drawer on mobile — use an app-style bottom tab bar instead */
+  .sidebar,
+  .mobile-menu-btn,
+  .sidebar-backdrop { display: none !important; }
+
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1400;
+    height: calc(58px + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--bloom-moss);
+    border-top: 1px solid rgba(244, 242, 237, 0.14);
+    box-shadow: 0 -6px 20px rgba(31, 48, 42, 0.18);
+    align-items: stretch;
+    justify-content: space-around;
+  }
+  .bottom-nav-item {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-height: 48px;
+    background: none;
+    border: none;
+    color: rgba(244, 242, 237, 0.58);
+    font-size: 11px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .bottom-nav-item.active { color: #f4f2ed; }
+  .bottom-nav-item .bn-icon { font-size: 20px; line-height: 1; }
+  .bottom-nav-item .bn-label { font-size: 11px; line-height: 1; }
 }
 
 /* Phones: collapse the rail to an icon-only column on the LEFT */

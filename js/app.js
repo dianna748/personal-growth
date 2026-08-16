@@ -60,18 +60,28 @@ const App = (function () {
   }
 
   function initNavigation() {
-    document.querySelectorAll('.nav-item').forEach(item => {
+    var allNavBtns = document.querySelectorAll('.nav-item, .bottom-nav-item');
+    allNavBtns.forEach(item => {
+      if (!item.dataset.module) return; // skip non-module buttons (e.g. sync tab)
       item.addEventListener('click', () => {
         const module = item.dataset.module;
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-        item.classList.add('active');
+        // keep both the sidebar and the bottom bar in sync
+        allNavBtns.forEach(n => n.classList.remove('active'));
+        allNavBtns.forEach(n => { if (n.dataset.module === module) n.classList.add('active'); });
         document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
-        document.getElementById('module-' + module).classList.add('active');
+        var target = document.getElementById('module-' + module);
+        if (target) target.classList.add('active');
 
         if ('speechSynthesis' in window) {
           window.speechSynthesis.cancel();
         }
       });
+    });
+    // Bottom-nav sync tab opens the sync settings modal
+    var bnSync = document.getElementById('bn-sync');
+    if (bnSync) bnSync.addEventListener('click', function () {
+      var open = document.getElementById('open-sync-modal');
+      if (open) open.click();
     });
   }
 
