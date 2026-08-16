@@ -3642,3 +3642,166 @@ html[lang^="zh"] .panel-sub-title .font-zh {
    确保 hero 输入区在 flex 容器里占满宽度（设计稿基础 .todo-input-wrap 仅 min-width:0）。 */
 .todo-add-bar--hero .todo-input-wrap,
 .todo-input-wrap { flex: 1 1 auto; min-width: 0; }
+
+/* ============================================================
+   Mobile app experience (phones & small tablets)
+   The sidebar stays on the LEFT as a rail — never a top bar.
+   Uses a fixed left rail so it is decoupled from the
+   `body { flex-direction: column }` rule in style.css.
+   ============================================================ */
+@media (max-width: 900px) {
+  html { -webkit-text-size-adjust: 100%; }
+
+  body { display: block; }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 200px;
+    z-index: 1200;
+    flex-direction: column;
+    padding-top: calc(env(safe-area-inset-top) + 24px);
+    padding-bottom: calc(env(safe-area-inset-bottom) + 24px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    border-right: 1px solid rgba(244, 242, 237, 0.14);
+    box-shadow: 8px 0 30px rgba(31, 48, 42, 0.18);
+  }
+
+  .sidebar-toggle { display: none; }
+  .nav-items { flex-direction: column; overflow: visible; }
+  .sidebar-footer { display: none; }
+
+  .main-content {
+    margin-left: 200px;
+    width: auto;
+    max-width: none;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding-top: calc(env(safe-area-inset-top) + 30px);
+    padding-bottom: calc(env(safe-area-inset-bottom) + 70px);
+  }
+}
+
+/* Phones: collapse the rail to an icon-only column on the LEFT */
+@media (max-width: 680px) {
+  .sidebar {
+    width: 72px;
+    padding: calc(env(safe-area-inset-top) + 14px) 8px calc(env(safe-area-inset-bottom) + 14px);
+    align-items: stretch;
+  }
+
+  .sidebar-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 0 0 14px;
+    margin: 0 0 14px;
+    border-bottom: 1px solid rgba(244, 242, 237, 0.14);
+  }
+  .logo { justify-content: center; }
+  .logo-icon { font-size: 22px; }
+  .logo-text,
+  .logo-subtitle,
+  .lang-switch { display: none; }
+
+  .nav-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 0;
+    width: 100%;
+  }
+
+  .nav-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 100%;
+    height: 56px;
+    min-height: 56px;
+    padding: 0;
+    border-radius: 14px;
+    grid-template-columns: none;
+  }
+  .nav-item.active { box-shadow: inset 3px 0 var(--bloom-terracotta); }
+  .nav-icon { font-size: 20px; }
+  .nav-label { display: none; }
+  .nav-badge {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    min-width: 16px;
+    height: 16px;
+    line-height: 14px;
+    padding: 0 4px;
+    font-size: 9px;
+    border-radius: 999px;
+  }
+
+  .sidebar-sync {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 48px;
+    min-height: 48px;
+    border-radius: 14px;
+    background: rgba(244, 242, 237, 0.08);
+    border: 1px solid rgba(244, 242, 237, 0.14);
+    color: #f4f2ed;
+  }
+  .sidebar-sync-label { display: none; }
+  .sidebar-sync .ico { width: 20px; height: 20px; margin: 0; }
+
+  .main-content {
+    margin-left: 72px;
+    padding: calc(env(safe-area-inset-top) + 28px) 16px calc(env(safe-area-inset-bottom) + 84px);
+  }
+
+  /* Full-screen modal sheet on phone (app feel) */
+  .modal-overlay {
+    padding: 0;
+    align-items: stretch;
+    z-index: 2000;
+  }
+  .modal {
+    width: 100%;
+    max-width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    border: 0;
+  }
+  .modal-body {
+    padding: 20px 16px calc(env(safe-area-inset-bottom) + 24px);
+  }
+
+  /* Overflow & touch hardening */
+  .module { width: 100%; }
+  img, svg, video, table { max-width: 100%; }
+  .article-body,
+  .reading-card .article-body,
+  .expression-card,
+  .grammar-card,
+  .listening-card,
+  .speaking-card { overflow-wrap: anywhere; }
+
+  .todo-history-btn,
+  .import-btn { height: 42px; }
+  .date-navigator { gap: 8px; }
+  .date-display { min-width: 0; }
+}
+
+@media (max-width: 520px) {
+  .module-title { font-size: 25px; }
+  .main-content { padding-left: 14px; padding-right: 14px; }
+  .nav-item { height: 52px; min-height: 52px; }
+}
