@@ -234,12 +234,15 @@ const TodoList = (function () {
 
   /* ---- CRUD ---- */
   function add(text, category) {
+    // New tasks land on the currently viewed date (top-right date navigator),
+    // not always today. addedDate records when it was actually created.
+    var targetDate = viewDate || todayStr();
     const todo = {
       id: Date.now() + Math.random(),
       text: text.trim(),
       category: category,
       done: false,
-      date: todayStr(),
+      date: targetDate,
       addedDate: todayStr(),
       rolledOver: false,
       createdAt: new Date().toISOString(),
@@ -611,6 +614,23 @@ const TodoList = (function () {
       if (typeof App !== 'undefined' && App.updateProgress) {
         App.updateProgress(doneCount, dayTasks.length);
       }
+    }
+    updateAddPlaceholder();
+  }
+
+  /* Reflect the currently viewed date in the add-input placeholder so it's
+     obvious which day a new task will land on. */
+  function updateAddPlaceholder() {
+    var inp = document.getElementById('todo-input');
+    if (!inp) return;
+    var lang = (typeof I18n !== 'undefined' && I18n.getLang) ? I18n.getLang() : 'en';
+    if (isToday(viewDate)) {
+      inp.placeholder = (typeof I18n !== 'undefined' && I18n.t) ? I18n.t('todo.placeholder') : 'What needs doing today?';
+    } else {
+      var dStr = dayMonthShort(viewDate);
+      if (lang === 'zh') inp.placeholder = '为 ' + dStr + ' 添加任务…';
+      else if (lang === 'fr') inp.placeholder = 'Ajouter une tâche pour le ' + dStr + '…';
+      else inp.placeholder = 'Add a task for ' + dStr + '…';
     }
   }
 
