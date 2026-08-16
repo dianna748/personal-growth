@@ -100,6 +100,27 @@ const App = (function () {
       var syncBtn = document.getElementById('open-sync-modal');
       if (syncBtn) syncBtn.addEventListener('click', function () { if (window.innerWidth <= 900) closeDrawer(); });
     }
+
+    // App-like gestures: swipe in from the left edge to open; swipe left to close.
+    var edgeX = null, edgeY = null;
+    document.addEventListener('touchstart', function (e) {
+      if (window.innerWidth > 900) return;
+      var t = e.touches[0];
+      var open = sidebar && sidebar.classList.contains('sidebar-open');
+      if (open) { edgeX = t.clientX; edgeY = t.clientY; }        // track for swipe-to-close
+      else if (t.clientX <= 26) { edgeX = t.clientX; edgeY = t.clientY; } // track for edge-open
+      else { edgeX = null; }
+    }, { passive: true });
+    document.addEventListener('touchend', function (e) {
+      if (edgeX === null || window.innerWidth > 900) { edgeX = null; return; }
+      var t = e.changedTouches[0];
+      var dx = t.clientX - edgeX;
+      var dy = Math.abs(t.clientY - edgeY);
+      var open = sidebar && sidebar.classList.contains('sidebar-open');
+      if (!open && dx > 50 && dy < 40) openDrawer();              // swipe right from edge -> open
+      else if (open && dx < -40 && dy < 50) closeDrawer();        // swipe left -> close
+      edgeX = null;
+    }, { passive: true });
   }
   function boot() {
     renderDate();

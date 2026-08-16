@@ -3604,6 +3604,11 @@ html[lang^="zh"] .panel-sub-title .font-zh {
 .todo-add-bar--hero .todo-input-wrap,
 .todo-input-wrap { flex: 1 1 auto; min-width: 0; }
 
+/* Mobile-only controls: hidden on desktop, shown inside the mobile media query below.
+   (Must come BEFORE the media query so the query's display rules can override on phones.) */
+.mobile-menu-btn,
+.sidebar-backdrop { display: none; }
+
 /* ============================================================
    Mobile app experience (phones & small tablets)
    The sidebar stays on the LEFT as a rail — never a top bar.
@@ -3956,8 +3961,4 @@ html[lang^="zh"] .panel-sub-title .font-zh {
   .main-content { padding-left: 14px; padding-right: 14px; }
   .nav-item { height: 52px; min-height: 52px; }
 }
-
-/* Mobile-only controls (menu button + drawer backdrop) stay hidden on desktop */
-.mobile-menu-btn,
-.sidebar-backdrop { display: none; }
 
