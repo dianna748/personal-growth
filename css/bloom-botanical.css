@@ -3695,7 +3695,12 @@ html[lang^="zh"] .panel-sub-title .font-zh {
     max-width: none;
     min-height: 100vh;
     min-height: 100dvh;
-    padding: calc(env(safe-area-inset-top) + 60px) 14px calc(env(safe-area-inset-bottom) + 78px) 6px;
+    padding: calc(env(safe-area-inset-top) + 60px) 14px calc(env(safe-area-inset-bottom) + 78px) 4px;
+  }
+  /* Same override for Chinese language — base html[lang^="zh"] .main-content
+     rules (specificity 0,2,1) would otherwise clamp us back to ~34px. */
+  html[lang^="zh"] .main-content {
+    padding: calc(env(safe-area-inset-top) + 60px) 14px calc(env(safe-area-inset-bottom) + 78px) 4px;
   }
 
   /* Abandon the sidebar/drawer on mobile — use an app-style bottom tab bar instead */
@@ -3838,7 +3843,7 @@ html[lang^="zh"] .panel-sub-title .font-zh {
   }
 
   /* Overflow & touch hardening */
-  .module { width: 100%; padding: 18px 16px 30px 10px; }
+  .module { width: 100%; padding: 18px 14px 30px 6px; }
   img, svg, video, table { max-width: 100%; }
   .article-body,
   .reading-card .article-body,
@@ -3997,7 +4002,8 @@ html[lang^="zh"] .panel-sub-title .font-zh {
 
 @media (max-width: 520px) {
   .module-title { font-size: 25px; }
-  .main-content { padding-left: 14px; padding-right: 14px; }
+  .main-content,
+  html[lang^="zh"] .main-content { padding-left: 4px; padding-right: 4px; }
   .nav-item { height: 52px; min-height: 52px; }
 }
 
