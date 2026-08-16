@@ -1,0 +1,166 @@
+/* ============================================
+   Bloom · Animation Definitions
+   ============================================ */
+
+/* Background orb float */
+@keyframes float-orb {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -40px) scale(1.1); }
+  66% { transform: translate(-20px, 30px) scale(0.95); }
+}
+
+/* Module fade in */
+@keyframes moduleFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Panel fade in */
+@keyframes panelFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Todo item slide in */
+@keyframes todoSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Toast slide in */
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100px) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+/* Recording pulse */
+@keyframes pulse-rec {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.4); }
+  50% { box-shadow: 0 0 0 12px rgba(255, 68, 68, 0); }
+}
+
+/* Progress ring appear */
+@keyframes ringAppear {
+  from { stroke-dashoffset: 163.36; }
+}
+
+/* Flashcard entry */
+@keyframes cardEntry {
+  from {
+    opacity: 0;
+    transform: translateY(30px) rotateX(-10deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotateX(0);
+  }
+}
+
+/* Fade in */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Pop in */
+@keyframes popIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  60% {
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Highlight pulse */
+@keyframes highlightPulse {
+  0%, 100% { background-color: var(--rose-100); }
+  50% { background-color: var(--rose-200); }
+}
+
+/* Shake */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  75% { transform: translateX(8px); }
+}
+
+/* Animation utility classes */
+.todo-item.entering {
+  animation: todoSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.todo-item.leaving {
+  animation: todoSlideIn 0.3s ease reverse forwards;
+}
+
+.flashcard.entering {
+  animation: cardEntry 0.5s ease;
+}
+
+.grammar-feedback.correct {
+  animation: popIn 0.4s ease;
+}
+
+.grammar-feedback.wrong {
+  animation: shake 0.4s ease;
+}
+
+/* Gradient text animation */
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.logo-text {
+  background-size: 200% 200%;
+  animation: gradientShift 5s ease infinite;
+}
+
+/* Hover float */
+@keyframes hover-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.empty-icon {
+  animation: hover-float 3s ease-in-out infinite;
+}
+
+/* Progress bar fill */
+@keyframes progressFill {
+  from { width: 0; }
+}
+
+.fc-progress-fill {
+  animation: progressFill 0.6s ease;
+}

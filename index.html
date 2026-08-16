@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bloom · Personal Growth & Learning</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/bloom-botanical.css">
+  <link rel="stylesheet" href="css/animations.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#25483d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Bloom">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+</head>
+<body>
+  <!-- Icon sprite — simple line (简笔画) icons, referenced via <use href="#i-NAME"/> -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <symbol id="i-bloom" viewBox="0 0 24 24">
+        <circle cx="12" cy="5" r="2.1"/><circle cx="18.4" cy="9" r="2.1"/><circle cx="15.8" cy="17" r="2.1"/>
+        <circle cx="8.2" cy="17" r="2.1"/><circle cx="5.6" cy="9" r="2.1"/>
+        <circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/>
+      </symbol>
+      <symbol id="i-check-square" viewBox="0 0 24 24">
+        <rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12l3 3 5-6"/>
+      </symbol>
+      <symbol id="i-book" viewBox="0 0 24 24">
+        <path d="M5 4c1.7 0 3 1 3 2.5V20c-1.7-.5-3-1.3-3-2.5V4z"/>
+        <path d="M19 4c-1.7 0-3 1-3 2.5V20c1.7-.5 3-1.3 3-2.5V4z"/>
+        <path d="M5 4c0 1.5 1.3 2.5 3 2.5M19 4c0 1.5-1.3 2.5-3 2.5"/>
+      </symbol>
+      <symbol id="i-feather" viewBox="0 0 24 24">
+        <path d="M20 4C13 4 7 8 5 16l-1.4 3.4L9 18C17 16 20 11 20 4z"/>
+        <path d="M5 19C9 15 13 12 17 10"/>
+      </symbol>
+      <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+      <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+      <symbol id="i-archive" viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"/><path d="M10 12h4"/>
+      </symbol>
+      <symbol id="i-chart" viewBox="0 0 24 24">
+        <path d="M4 20h16"/><rect x="6" y="11" width="3" height="7"/><rect x="11" y="7" width="3" height="11"/><rect x="16" y="13" width="3" height="5"/>
+      </symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8"/><path d="M12 7.5V12l3.5 2"/>
+      </symbol>
+      <symbol id="i-leaf" viewBox="0 0 24 24">
+        <path d="M5 19C5 9 12 4 20 4c0 8-5 15-15 15z"/><path d="M6 18C10 14 14 11 18 9"/>
+      </symbol>
+      <symbol id="i-search" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </symbol>
+      <symbol id="i-flame" viewBox="0 0 24 24">
+        <path d="M12 3c2 3 4 5 4 8a4 4 0 0 1-8 0c0-1.5.7-2.5 1.5-3.5 0 1.6.8 2.5 1.5 2.5C10 11 11 7 12 3z"/>
+      </symbol>
+      <symbol id="i-check-circle" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8"/><path d="M8 12l3 3 5-6"/>
+      </symbol>
+      <symbol id="i-clipboard" viewBox="0 0 24 24">
+        <rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M9 11h6M9 15h6"/>
+      </symbol>
+      <symbol id="i-trophy" viewBox="0 0 24 24">
+        <path d="M8 4h8v4a4 4 0 0 1-8 0V4z"/><path d="M5 5H3v2a3 3 0 0 0 3 3M19 5h2v2a3 3 0 0 1-3 3"/><path d="M12 12v4M9 20h6M10 16h4v4h-4z"/>
+      </symbol>
+      <symbol id="i-newspaper" viewBox="0 0 24 24">
+        <rect x="3" y="5" width="18" height="15" rx="2"/><path d="M7 9h6M7 13h10M7 17h10M15 9h2"/>
+      </symbol>
+      <symbol id="i-library" viewBox="0 0 24 24">
+        <path d="M5 4h4v16H5z"/><path d="M11 4h4v16h-4z"/><path d="M17 4h4v16h-4z"/>
+      </symbol>
+      <symbol id="i-book-open" viewBox="0 0 24 24">
+        <path d="M12 6c-2-1.4-4.5-1.8-7-1.4V19c2.5-.4 5 .1 7 1.4M12 6c2-1.4 4.5-1.8 7-1.4V19c-2.5-.4-5 .1-7 1.4"/>
+        <path d="M12 6v14"/>
+      </symbol>
+      <symbol id="i-headphones" viewBox="0 0 24 24">
+        <path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="13" width="4" height="7" rx="1.6"/><rect x="17" y="13" width="4" height="7" rx="1.6"/>
+      </symbol>
+      <symbol id="i-mic" viewBox="0 0 24 24">
+        <rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/>
+      </symbol>
+      <symbol id="i-sparkles" viewBox="0 0 24 24">
+        <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/>
+        <path d="M18 14l.8 2.2L21 17l-2.2.8L18 20l-.8-2.2L15 17l2.2-.8z"/>
+      </symbol>
+      <symbol id="i-sparkle" viewBox="0 0 24 24">
+        <path d="M12 4l1.6 6.4L20 12l-6.4 1.6L12 20l-1.6-6.4L4 12l6.4-1.6z"/>
+      </symbol>
+      <symbol id="i-volume" viewBox="0 0 24 24">
+        <path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 7a7 7 0 0 1 0 10"/>
+      </symbol>
+      <symbol id="i-pencil" viewBox="0 0 24 24">
+        <path d="M4 20l4-1L19 8l-3-3L5 16l-1 4z"/><path d="M14 6l3 3"/>
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-11"/></symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24">
+        <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/>
+        <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/>
+      </symbol>
+      <symbol id="i-cards" viewBox="0 0 24 24">
+        <rect x="4" y="7" width="11" height="14" rx="2" transform="rotate(-8 9.5 14)"/>
+        <rect x="9" y="4" width="11" height="14" rx="2"/>
+      </symbol>
+      <symbol id="i-ruler" viewBox="0 0 24 24">
+        <g transform="rotate(-14 12 12)"><rect x="3" y="8" width="18" height="8" rx="1"/>
+        <path d="M7 8v3M11 8v4M15 8v3M19 8v4"/></g>
+      </symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></symbol>
+      <symbol id="i-pause" viewBox="0 0 24 24">
+        <rect x="7" y="5" width="3.4" height="14" rx="1.2"/><rect x="13.6" y="5" width="3.4" height="14" rx="1.2"/>
+      </symbol>
+      <symbol id="i-undo" viewBox="0 0 24 24">
+        <path d="M9 7L4 12l5 5"/><path d="M4 12h11a5 5 0 0 1 0 10h-3"/>
+      </symbol>
+      <symbol id="i-bulb" viewBox="0 0 24 24">
+        <path d="M9 18h6M10 21h4"/>
+        <path d="M12 3a6 6 0 0 0-4 10c.8.8 1 1.6 1 3h6c0-1.4.2-2.2 1-3a6 6 0 0 0-4-10z"/>
+      </symbol>
+      <symbol id="i-info" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><circle cx="12" cy="7.7" r="0.6" fill="currentColor" stroke="none"/>
+      </symbol>
+      <symbol id="i-warn" viewBox="0 0 24 24">
+        <path d="M12 3l9 16H3z"/><path d="M12 10v4"/>
+        <circle cx="12" cy="16.4" r="0.7" fill="currentColor" stroke="none"/>
+      </symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-subtask" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.4"/><circle cx="4.5" cy="12" r="1.4"/><circle cx="4.5" cy="18" r="1.4"/></symbol>
+    </defs>
+  </svg>
+
+  <!-- Dynamic background -->
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <!-- Sidebar navigation -->
+  <nav class="sidebar" id="sidebar">
+    <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle sidebar" title="Toggle">
+      <svg class="ico" aria-hidden="true"><use href="#i-chevron-left"/></svg>
+    </button>
+    <div class="sidebar-header">
+      <div class="logo">
+        <span class="logo-icon">✿</span>
+        <span class="logo-text">Bloom</span>
+      </div>
+      <p class="logo-subtitle" data-i18n="brand.subtitle">Personal Growth & Learning</p>
+      <div class="lang-switch" id="lang-switch">
+        <button class="lang-btn" data-lang="zh">中文</button>
+        <button class="lang-btn" data-lang="en">EN</button>
+        <button class="lang-btn" data-lang="fr">FR</button>
+      </div>
+    </div>
+
+    <div class="nav-items">
+      <button class="nav-item active" data-module="todolist">
+        <span class="nav-icon">☑</span>
+        <span class="nav-label" data-i18n="nav.dailyTasks">Daily Tasks</span>
+        <span class="nav-badge" id="nav-todo-count">0</span>
+      </button>
+      <button class="nav-item" data-module="english">
+        <span class="nav-icon">🇬🇧</span>
+        <span class="nav-label" data-i18n="nav.english">English</span>
+      </button>
+      <button class="nav-item" data-module="french">
+        <span class="nav-icon">🇫🇷</span>
+        <span class="nav-label" data-i18n="nav.french">French</span>
+      </button>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="date-card">
+        <div class="date-day" id="date-day">--</div>
+        <div class="date-info">
+          <span id="date-month">----</span>
+          <span id="date-weekday">----</span>
+        </div>
+      </div>
+      <div class="daily-progress">
+        <div class="progress-ring-mini">
+          <svg viewBox="0 0 60 60">
+            <circle class="ring-bg" cx="30" cy="30" r="26"></circle>
+            <circle class="ring-fill" cx="30" cy="30" r="26" id="daily-ring"></circle>
+          </svg>
+          <span class="ring-text" id="daily-progress-text">0%</span>
+        </div>
+        <span class="progress-label" data-i18n="progress.daily">Daily Progress</span>
+      </div>
+    </div>
+
+    <button class="sidebar-sync" id="open-sync-modal" type="button" aria-label="Sync settings">
+      <svg class="ico" aria-hidden="true"><use href="#i-refresh"/></svg>
+      <span class="sidebar-sync-label" data-i18n="sync.open">Sync</span>
+      <span class="sync-dot" id="sync-dot"></span>
+    </button>
+  </nav>
+
+  <!-- Main content -->
+  <main class="main-content">
+    <!-- ============ Todolist Module ============ -->
+    <section class="module active" id="module-todolist">
+      <div class="module-header module-header--compact">
+        <div class="module-head-left">
+          <span class="module-kicker" data-i18n="kicker.todolist">Daily Focus</span>
+          <h1 class="module-title" data-i18n="nav.dailyTasks">Daily Tasks</h1>
+          <p class="module-subtitle" data-i18n="todo.subtitle">Shape each day into the one you want</p>
+        </div>
+        <div class="module-head-right">
+          <div class="date-navigator">
+            <button class="date-nav-btn" id="date-prev" aria-label="previous day" data-i18n-title="dn.prevDay" title="Previous day">
+              <svg class="ico" aria-hidden="true"><use href="#i-chevron-left"/></svg>
+            </button>
+            <button class="date-chip" id="date-chip">
+              <span class="date-chip-weekday" id="date-chip-weekday">--</span>
+              <span class="date-chip-day" id="date-chip-day">--</span>
+              <span class="date-chip-badge" id="date-chip-badge" hidden></span>
+              <svg class="ico date-chip-caret" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+            </button>
+            <button class="date-nav-btn" id="date-next" aria-label="next day" data-i18n-title="dn.nextDay" title="Next day">
+              <svg class="ico" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+            </button>
+            <button class="date-today-btn" id="date-today" data-i18n="dn.todayBtn">Today</button>
+            <span class="date-nav-sep"></span>
+            <button class="todo-history-btn" id="todo-history-btn" data-i18n-title="todo.historyBtn" aria-label="View history">
+              <svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg>
+              <span data-i18n="todo.historyBtn">History</span>
+            </button>
+            <button class="import-btn" id="open-import-modal" data-i18n-title="dn.importBtn" title="Import past">
+              <svg class="ico" aria-hidden="true"><use href="#i-archive"/></svg>
+              <span data-i18n="dn.importBtn">Import past</span>
+            </button>
+            <div class="calendar-popover" id="calendar-popover" hidden></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Section: Daily Tasks ===== -->
+      <div class="todo-section" id="section-daily">
+
+
+<div class="todo-add-bar--hero">
+  <div class="todo-input-wrap">
+    <input type="text" id="todo-input" placeholder="What needs doing today?" maxlength="100" data-i18n-ph="todo.placeholder">
+    <div class="todo-category-picker">
+      <button class="cat-btn active" data-cat="life"><span class="cat-dot life"></span><span data-i18n="cat.life">Life</span></button>
+      <button class="cat-btn" data-cat="work"><span class="cat-dot work"></span><span data-i18n="cat.work">Work</span></button>
+      <button class="cat-btn" data-cat="study"><span class="cat-dot study"></span><span data-i18n="cat.study">Study</span></button>
+    </div>
+  </div>
+  <button class="todo-add-btn" id="todo-add-btn" data-i18n-title="todo.toastEmpty">
+    <svg class="ico" aria-hidden="true"><use href="#i-bloom"/></svg>
+  </button>
+</div>
+
+        <!-- Rollover banner -->
+        <div class="rollover-banner" id="rollover-banner" style="display:none;">
+          <span class="rollover-icon"><svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg></span>
+          <span class="rollover-text" id="rollover-text"></span>
+        </div>
+
+        <!-- Work-load heatmap -->
+        <div class="heatmap-card">
+          <div class="heatmap-header">
+            <h3 class="heatmap-title" data-i18n="heatmap.title">Workload</h3>
+            <div class="heatmap-summary">
+              <span class="hs-num" id="heatmap-active-days">0</span>
+              <span class="hs-lbl" data-i18n="heatmap.activeDays">active days</span>
+              <span class="hs-sep">·</span>
+              <span class="hs-num" id="heatmap-total-tasks">0</span>
+              <span class="hs-lbl" data-i18n="heatmap.doneTotal">tasks completed</span>
+            </div>
+          </div>
+          <div class="heatmap-shell">
+            <div class="heatmap-months" id="heatmap-months"></div>
+            <div class="heatmap-body">
+              <div class="heatmap-weekdays" aria-hidden="true">
+                <span></span><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span>
+              </div>
+              <div class="heatmap-grid" id="heatmap-grid"></div>
+            </div>
+          </div>
+          <div class="heatmap-legend">
+            <a class="heatmap-learn" href="javascript:void(0)" data-i18n="heatmap.learnMore">Learn how this is calculated</a>
+            <div class="heatmap-scale" aria-hidden="true">
+              <span class="heatmap-scale-label" data-i18n="heatmap.less">Less</span>
+              <span class="heatmap-cell h0"></span>
+              <span class="heatmap-cell h1"></span>
+              <span class="heatmap-cell h2"></span>
+              <span class="heatmap-cell h3"></span>
+              <span class="heatmap-cell h4"></span>
+              <span class="heatmap-scale-label" data-i18n="heatmap.more">More</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter pills (kept inline, compact) -->
+        <div class="todo-tabs">
+          <button class="todo-tab active" data-filter="all" data-i18n="archive.all">All</button>
+          <button class="todo-tab" data-filter="life" data-i18n="cat.life">Life</button>
+          <button class="todo-tab" data-filter="work" data-i18n="cat.work">Work</button>
+          <button class="todo-tab" data-filter="study" data-i18n="cat.study">Study</button>
+        </div>
+
+        <!-- Grouped task list (multiple dates visible) -->
+        <div class="todo-grouped" id="todo-grouped"></div>
+
+        <!-- Empty state (shown only when zero groups) -->
+        <div class="empty-state" id="todo-empty">
+          <div class="empty-icon">🌸</div>
+          <p class="empty-title" data-i18n="todo.emptyTitle">Your day is a blank canvas</p>
+          <p class="empty-hint" data-i18n="todo.emptyHint">Add your first task and make it count</p>
+        </div>
+      </div>
+
+      <!-- ===== Section: Archive ===== -->
+      <!-- Archive moved to a modal (v1.8); triggered by the history button in the daily header -->
+
+      <!-- ===== Section: Dashboard ===== -->
+      <div class="todo-section" id="section-dashboard">
+        <div class="section-heading">
+          <h2 class="section-title">
+            <svg class="ico" aria-hidden="true"><use href="#i-chart"/></svg>
+            <span data-i18n="todo.section.dashboard">Dashboard</span>
+          </h2>
+          <p class="section-hint" data-i18n="todo.section.dashboardHint">Streak, completion rate and trends</p>
+        </div>
+        <div class="dashboard-grid">
+          <!-- Streak Card -->
+          <div class="dash-card streak-card">
+            <div class="dash-card-icon"><svg class="ico" aria-hidden="true"><use href="#i-flame"/></svg></div>
+            <div class="dash-card-body">
+              <span class="dash-card-value" id="dash-streak">0</span>
+              <span class="dash-card-label" data-i18n="dash.streak">Day Streak</span>
+            </div>
+          </div>
+          <!-- Completion Rate -->
+          <div class="dash-card rate-card">
+            <div class="dash-card-icon"><svg class="ico" aria-hidden="true"><use href="#i-check-circle"/></svg></div>
+            <div class="dash-card-body">
+              <span class="dash-card-value" id="dash-rate">0%</span>
+              <span class="dash-card-label" data-i18n="dash.rate">Completion Rate (7 days)</span>
+            </div>
+          </div>
+          <!-- Total Tasks -->
+          <div class="dash-card total-card">
+            <div class="dash-card-icon"><svg class="ico" aria-hidden="true"><use href="#i-clipboard"/></svg></div>
+            <div class="dash-card-body">
+              <span class="dash-card-value" id="dash-total">0</span>
+              <span class="dash-card-label" data-i18n="dash.total">Total Tasks (all time)</span>
+            </div>
+          </div>
+          <!-- Top Category -->
+          <div class="dash-card top-cat-card">
+            <div class="dash-card-icon"><svg class="ico" aria-hidden="true"><use href="#i-trophy"/></svg></div>
+            <div class="dash-card-body">
+              <span class="dash-card-value" id="dash-top-cat">--</span>
+              <span class="dash-card-label" data-i18n="dash.topCat">Top Category</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Category Distribution Bar Chart -->
+        <div class="dash-section">
+          <h3 class="dash-section-title" data-i18n="dash.catDist">Category Distribution</h3>
+          <div class="dash-bar-chart" id="dash-bar-chart">
+            <div class="bar-row" data-cat="life">
+              <span class="bar-label" data-i18n="cat.life">Life</span>
+              <div class="bar-track"><div class="bar-fill life" id="bar-life"></div></div>
+              <span class="bar-val" id="bar-val-life">0</span>
+            </div>
+            <div class="bar-row" data-cat="work">
+              <span class="bar-label" data-i18n="cat.work">Work</span>
+              <div class="bar-track"><div class="bar-fill work" id="bar-work"></div></div>
+              <span class="bar-val" id="bar-val-work">0</span>
+            </div>
+            <div class="bar-row" data-cat="study">
+              <span class="bar-label" data-i18n="cat.study">Study</span>
+              <div class="bar-track"><div class="bar-fill study" id="bar-study"></div></div>
+              <span class="bar-val" id="bar-val-study">0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Weekly Trend -->
+        <div class="dash-section">
+          <h3 class="dash-section-title" data-i18n="dash.weeklyTrend">Weekly Trend</h3>
+          <div class="dash-trend" id="dash-trend">
+            <!-- dynamically rendered: 7-day bar mini-chart -->
+          </div>
+        </div>
+      </div>
+      <!-- /.section-dashboard -->
+    </section>
+
+    <!-- ============ English Learning Module ============ --><!-- ============ English Learning Module ============ -->
+    <section class="module" id="module-english">
+      <div class="module-header">
+        <div>
+          <span class="module-kicker" data-i18n="kicker.english">Fluency Builder</span>
+          <h1 class="module-title" data-i18n="eng.title">English Learning</h1>
+          <p class="module-subtitle" data-i18n="eng.subtitle">Daily practice for real progress</p>
+        </div>
+      </div>
+
+      <!-- English sub-nav -->
+      <div class="sub-nav eng-sub-nav">
+        <button class="sub-nav-item active" data-eng-tab="news" data-i18n="eng.tab.news">📰 Daily News</button>
+        <button class="sub-nav-item" data-eng-tab="archive" data-i18n="eng.tab.archive">📚 Archive</button>
+        <button class="sub-nav-item" data-eng-tab="vocablib" data-i18n="eng.tab.vocablib">📖 Vocab Library</button>
+        <button class="sub-nav-item" data-eng-tab="listening" data-i18n="eng.tab.listening">🎧 Listening</button>
+        <button class="sub-nav-item" data-eng-tab="speaking" data-i18n="eng.tab.speaking">🗣️ Speaking</button>
+        <button class="sub-nav-item" data-eng-tab="expression" data-i18n="eng.tab.expression">✨ Expression</button>
+      </div>
+
+      <!-- ===== Daily News ===== -->
+      <div class="eng-panel active" id="eng-news">
+        <div class="article-card">
+          <div class="article-meta">
+            <div class="meta-left">
+              <span class="article-tag" id="eng-news-source">The Economist</span>
+              <span class="article-date" id="eng-news-date">July 22, 2026</span>
+              <span class="article-wordcount" id="eng-news-wordcount" style="display:none;"></span>
+            </div>
+            <div class="meta-actions">
+              <button class="read-aloud-btn" data-target="eng-news-body" data-i18n="eng.readAloud">
+                <span>🔊</span> Read Aloud
+              </button>
+            </div>
+          </div>
+          <h2 class="article-title" id="eng-news-title"></h2>
+          <div class="article-body" id="eng-news-body"></div>
+
+          <!-- Key Vocabulary -->
+          <div class="article-vocab" id="eng-news-vocab">
+            <h3 class="vocab-title">📖 Key Vocabulary <span class="vocab-auto-badge" data-i18n="eng.autoMarked">auto-marked</span></h3>
+            <div class="vocab-list" id="eng-news-vocab-list"></div>
+          </div>
+
+          <!-- User-added vocabulary -->
+          <div class="article-vocab user-vocab" id="eng-user-vocab" style="display:none;">
+            <h3 class="vocab-title" data-i18n="eng.userVocabTitle">✏️ Your Marked Vocabulary</h3>
+            <div class="vocab-list" id="eng-user-vocab-list"></div>
+          </div>
+
+          <!-- Completion bar -->
+          <div class="article-complete-bar" id="eng-news-complete-bar">
+            <p class="complete-status" data-i18n="eng.completeStatus">Read the article, then mark it as complete to archive.</p>
+            <button class="complete-btn" id="eng-news-complete-btn" data-i18n="eng.markRead">
+              <span>✓</span> Mark as Read
+            </button>
+          </div>
+        </div>
+
+        <!-- Word popup for manual marking -->
+        <div class="word-popup" id="word-popup" style="display:none;">
+          <span class="word-popup-text" id="word-popup-text"></span>
+          <button class="word-popup-btn" id="word-popup-add" data-i18n="eng.addToVocab">+ Add to Vocab</button>
+        </div>
+      </div>
+
+      <!-- ===== Article Archive ===== -->
+      <div class="eng-panel" id="eng-archive">
+        <div class="archive-filters">
+          <div class="archive-search-wrap">
+            <input type="text" id="eng-archive-search" placeholder="Search archived articles..." maxlength="60" data-i18n-ph="eng.newsEmptyHint">
+            <span class="search-icon">🔍</span>
+          </div>
+        </div>
+        <div class="eng-archive-list" id="eng-archive-list">
+          <!-- dynamically rendered -->
+        </div>
+        <div class="empty-state" id="eng-archive-empty">
+          <div class="empty-icon">📚</div>
+          <p class="empty-title" data-i18n="eng.newsEmptyTitle">No news articles studied yet</p>
+          <p class="empty-hint" data-i18n="eng.newsEmptyHint">Read today's news to start building your archive</p>
+        </div>
+      </div>
+
+      <!-- ===== Vocab Library ===== -->
+      <div class="eng-panel" id="eng-vocablib">
+        <div class="vocablib-header">
+          <div class="archive-search-wrap">
+            <input type="text" id="vocablib-search" placeholder="Search vocabulary..." maxlength="60" data-i18n-ph="eng.vocablibSearch">
+            <span class="search-icon">🔍</span>
+          </div>
+          <div class="vocablib-stats">
+            <span class="vocablib-count"><span data-i18n="eng.vocablibTotal">Total:</span> <strong id="vocablib-total">0</strong></span>
+            <span class="vocablib-mastered"><span data-i18n="eng.vocablibMastered">Mastered:</span> <strong id="vocablib-mastered">0</strong></span>
+          </div>
+        </div>
+        <div class="vocablib-grid" id="vocablib-grid">
+          <!-- dynamically rendered -->
+        </div>
+        <div class="empty-state" id="vocablib-empty">
+          <div class="empty-icon">📖</div>
+          <p class="empty-title" data-i18n="eng.vocablibEmptyTitle">Your vocab library is empty</p>
+          <p class="empty-hint" data-i18n="eng.vocablibEmptyHint">Words you mark in news articles will appear here</p>
+        </div>
+      </div>
+
+      <!-- ===== Listening ===== -->
+      <div class="eng-panel" id="eng-listening">
+        <div class="panel-sub-bar">
+          <span class="panel-sub-title" id="eng-listen-date-label" data-i18n="eng.listenDateLabel">Today's Practice</span>
+          <button class="panel-history-btn" data-panel="listen" id="eng-listen-history-btn" data-i18n="eng.historyLabel">📦 History</button>
+        </div>
+        <div class="panel-daily" id="eng-listen-daily">
+          <div class="listening-card">
+            <div class="article-meta">
+              <span class="article-tag" id="eng-listen-tag" data-i18n="eng.listenTag">Listening</span>
+              <span class="article-date" id="eng-listen-daily-tag" data-i18n="eng.dailyListening">Daily Listening</span>
+            </div>
+            <h2 class="article-title" id="eng-listen-title"></h2>
+            <div class="listening-controls">
+              <button class="play-btn" id="eng-play-btn">
+                <span class="play-icon">▶</span>
+              </button>
+              <div class="speed-control">
+                <button class="speed-btn" data-speed="0.75">0.75x</button>
+                <button class="speed-btn active" data-speed="1">1x</button>
+                <button class="speed-btn" data-speed="1.25">1.25x</button>
+              </div>
+            </div>
+            <div class="transcript" id="eng-listen-transcript"></div>
+          </div>
+        </div>
+        <div class="panel-archive" id="eng-listen-archive" style="display:none;">
+          <div class="archive-filters">
+            <div class="archive-search-wrap">
+              <input type="text" id="eng-listen-archive-search" placeholder="Search listening sessions..." maxlength="60">
+              <span class="search-icon">🔍</span>
+            </div>
+          </div>
+          <div class="eng-archive-list" id="eng-listen-archive-list"></div>
+          <div class="empty-state" id="eng-listen-archive-empty">
+            <div class="empty-icon">🎧</div>
+            <p class="empty-title" data-i18n="eng.listenEmptyTitle">No listening practice archived yet</p>
+            <p class="empty-hint" data-i18n="eng.listenEmptyHint">Complete today's listening to start your archive</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Speaking ===== -->
+      <div class="eng-panel" id="eng-speaking">
+        <div class="panel-sub-bar">
+          <span class="panel-sub-title" id="eng-speak-date-label" data-i18n="eng.speakDateLabel">Today's Challenge</span>
+          <button class="panel-history-btn" data-panel="speak" id="eng-speak-history-btn" data-i18n="eng.historyLabel">📦 History</button>
+        </div>
+        <div class="panel-daily" id="eng-speak-daily">
+          <div class="speaking-card">
+            <div class="article-meta">
+              <span class="article-tag" id="eng-speak-tag" data-i18n="eng.speakingTag">Speaking</span>
+              <span class="article-date" id="eng-speak-daily-tag" data-i18n="eng.dailySpeaking">Daily Speaking</span>
+            </div>
+            <h2 class="article-title" data-i18n="eng.speakDateLabel">Today's Speaking Challenge</h2>
+            <div class="speaking-prompt" id="eng-speak-prompt"></div>
+            <div class="speaking-sentence" id="eng-speak-sentence"></div>
+            <div class="speaking-actions">
+              <button class="speak-btn" id="eng-speak-play" data-i18n="eng.listenBtn">
+                <span>🔊</span> Listen
+              </button>
+              <button class="speak-btn record" id="eng-speak-record">
+                <span>🎤</span> <span class="record-text" data-i18n="eng.record">Record</span>
+              </button>
+            </div>
+            <div class="speaking-tips" id="eng-speak-tips"></div>
+          </div>
+        </div>
+        <div class="panel-archive" id="eng-speak-archive" style="display:none;">
+          <div class="archive-filters">
+            <div class="archive-search-wrap">
+              <input type="text" id="eng-speak-archive-search" placeholder="Search speaking sessions..." maxlength="60">
+              <span class="search-icon">🔍</span>
+            </div>
+          </div>
+          <div class="eng-archive-list" id="eng-speak-archive-list"></div>
+          <div class="empty-state" id="eng-speak-archive-empty">
+            <div class="empty-icon">🗣️</div>
+            <p class="empty-title" data-i18n="eng.speakEmptyTitle">No speaking practice archived yet</p>
+            <p class="empty-hint" data-i18n="eng.speakEmptyHint">Practice today's speaking to start your archive</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Advanced Expression ===== -->
+      <div class="eng-panel" id="eng-expression">
+        <div class="panel-sub-bar">
+          <span class="panel-sub-title" id="eng-expr-date-label" data-i18n="eng.exprDateLabel">Today's Expression</span>
+          <button class="panel-history-btn" data-panel="expr" id="eng-expr-history-btn" data-i18n="eng.historyLabel">📦 History</button>
+        </div>
+        <div class="panel-daily" id="eng-expr-daily">
+          <div class="expression-card">
+            <div class="article-meta">
+              <span class="article-tag" id="eng-expr-tag" data-i18n="eng.advancedExpr">Advanced Expression</span>
+              <span class="article-date" id="eng-expr-daily-tag" data-i18n="eng.dailyExpression">Daily Expression</span>
+            </div>
+            <div class="expression-word" id="eng-expr-word"></div>
+            <div class="expression-pronunciation" id="eng-expr-pron"></div>
+            <div class="expression-meaning" id="eng-expr-meaning"></div>
+            <div class="expression-example" id="eng-expr-example"></div>
+            <div class="expression-usage" id="eng-expr-usage"></div>
+            <div class="expression-actions">
+              <button class="expr-btn" id="eng-expr-speak" data-i18n="fr.pronounceBtn">
+                <span>🔊</span> Pronounce
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="panel-archive" id="eng-expr-archive" style="display:none;">
+          <div class="archive-filters">
+            <div class="archive-search-wrap">
+              <input type="text" id="eng-expr-archive-search" placeholder="Search expressions..." maxlength="60" data-i18n-ph="eng.exprEmptyHint">
+              <span class="search-icon">🔍</span>
+            </div>
+          </div>
+          <div class="eng-archive-list" id="eng-expr-archive-list"></div>
+          <div class="empty-state" id="eng-expr-archive-empty">
+            <div class="empty-icon">✨</div>
+            <p class="empty-title" data-i18n="eng.exprEmptyTitle">No expressions archived yet</p>
+            <p class="empty-hint" data-i18n="eng.exprEmptyHint">Today's expression will be archived automatically</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ French Learning Module ============ -->
+    <section class="module" id="module-french">
+      <div class="module-header">
+        <div>
+          <span class="module-kicker" data-i18n="kicker.french">Language Lab</span>
+          <h1 class="module-title" data-i18n="fr.title">French Learning</h1>
+          <p class="module-subtitle" data-i18n="fr.subtitle">From bonjour to fluency · Bon courage !</p>
+        </div>
+      </div>
+
+      <!-- French sub-nav -->
+      <div class="sub-nav">
+        <button class="sub-nav-item active" data-fr-tab="vocab" data-i18n="fr.tab.vocab">🎴 Vocabulary</button>
+        <button class="sub-nav-item" data-fr-tab="grammar" data-i18n="fr.tab.grammar">📐 Grammar</button>
+        <button class="sub-nav-item" data-fr-tab="reading" data-i18n="fr.tab.reading">📖 Leveled Reading</button>
+      </div>
+
+      <!-- Vocabulary Flashcards -->
+      <div class="fr-panel active" id="fr-vocab">
+        <div class="panel-sub-bar">
+          <span class="panel-sub-title" id="fr-vocab-date-label" data-i18n="fr.vocabDateLabel">Today's Words</span>
+          <button class="panel-history-btn" data-panel="frvocab" id="fr-vocab-history-btn" data-i18n="fr.historyLabel">📦 History</button>
+        </div>
+        <div class="panel-daily" id="fr-vocab-daily">
+          <div class="flashcard-area">
+            <div class="flashcard" id="fr-flashcard">
+              <div class="flashcard-inner">
+                <div class="flashcard-front">
+                  <div class="fc-lang-tag" data-i18n="fr.fcLangFr">Français</div>
+                  <div class="fc-word" id="fr-vocab-word"></div>
+                  <div class="fc-phonetic" id="fr-vocab-phon"></div>
+                  <div class="fc-hint" data-i18n="fr.fcFlipHint">Tap to flip →</div>
+                </div>
+                <div class="flashcard-back">
+                  <div class="fc-lang-tag" data-i18n="fr.fcLangMeaning">Meaning</div>
+                  <div class="fc-translation" id="fr-vocab-trans"></div>
+                  <div class="fc-example" id="fr-vocab-example"></div>
+                  <div class="fc-example-trans" id="fr-vocab-example-trans"></div>
+                </div>
+              </div>
+            </div>
+            <div class="flashcard-controls">
+              <button class="fc-btn" id="fr-vocab-prev" data-i18n="fr.fcPrev">
+                <span>←</span> Prev
+              </button>
+              <button class="fc-btn flip-btn" id="fr-vocab-flip" data-i18n="fr.fcFlip">
+                <span>🔄</span> Flip
+              </button>
+              <button class="fc-btn known-btn" id="fr-vocab-known" data-i18n="fr.fcKnown">
+                <span>✓</span> Known
+              </button>
+              <button class="fc-btn" id="fr-vocab-next" data-i18n="fr.fcNext">
+                Next <span>→</span>
+              </button>
+            </div>
+            <div class="flashcard-progress">
+              <span id="fr-vocab-index">1 / 5</span>
+              <div class="fc-progress-bar">
+                <div class="fc-progress-fill" id="fr-vocab-progress"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel-archive" id="fr-vocab-archive" style="display:none;">
+          <div class="archive-filters">
+            <div class="archive-search-wrap">
+              <input type="text" id="fr-vocab-archive-search" placeholder="Search vocabulary..." maxlength="60" data-i18n-ph="fr.vocabEmptyHint">
+              <span class="search-icon">🔍</span>
+            </div>
+          </div>
+          <div class="eng-archive-list" id="fr-vocab-archive-list"></div>
+          <div class="empty-state" id="fr-vocab-archive-empty">
+            <div class="empty-icon">🎴</div>
+            <p class="empty-title" data-i18n="fr.vocabEmptyTitle">No vocabulary archived yet</p>
+            <p class="empty-hint" data-i18n="fr.vocabEmptyHint">Today's words will be archived automatically</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grammar Practice -->
+      <div class="fr-panel" id="fr-grammar">
+        <div class="panel-sub-bar">
+          <span class="panel-sub-title" id="fr-grammar-date-label" data-i18n="fr.grammarDateLabel">Today's Exercise</span>
+          <button class="panel-history-btn" data-panel="frgrammar" id="fr-grammar-history-btn" data-i18n="fr.historyLabel">📦 History</button>
+        </div>
+        <div class="panel-daily" id="fr-grammar-daily">
+          <div class="grammar-card">
+            <div class="article-meta">
+              <span class="article-tag" id="fr-grammar-tag" data-i18n="fr.grammarTag">Grammaire</span>
+              <span class="article-date" id="fr-grammar-topic"></span>
+            </div>
+            <div class="grammar-rule" id="fr-grammar-rule"></div>
+            <div class="grammar-exercise" id="fr-grammar-exercise"></div>
+            <div class="grammar-options" id="fr-grammar-options"></div>
+            <div class="grammar-feedback" id="fr-grammar-feedback"></div>
+            <div class="grammar-actions">
+              <button class="grammar-btn" id="fr-grammar-check" data-i18n="fr.grammarCheck">Check Answer</button>
+              <button class="grammar-btn secondary" id="fr-grammar-next" data-i18n="fr.grammarNext">Next →</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel-archive" id="fr-grammar-archive" style="display:none;">
+          <div class="archive-filters">
+            <div class="archive-search-wrap">
+              <input type="text" id="fr-grammar-archive-search" placeholder="Search grammar exercises..." maxlength="60" data-i18n-ph="fr.grammarEmptyHint">
+              <span class="search-icon">🔍</span>
+            </div>
+          </div>
+          <div class="eng-archive-list" id="fr-grammar-archive-list"></div>
+          <div class="empty-state" id="fr-grammar-archive-empty">
+            <div class="empty-icon">📐</div>
+            <p class="empty-title" data-i18n="fr.grammarEmptyTitle">No grammar exercises archived yet</p>
+            <p class="empty-hint" data-i18n="fr.grammarEmptyHint">Today's exercise will be archived automatically</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Leveled Reading -->
+      <div class="fr-panel" id="fr-reading">
+        <div class="panel-sub-bar">
+          <span class="panel-sub-title" id="fr-read-date-label" data-i18n="fr.readDateLabel">Today's Reading</span>
+          <button class="panel-history-btn" data-panel="frread" id="fr-read-history-btn" data-i18n="fr.historyLabel">📦 History</button>
+        </div>
+        <div class="panel-daily" id="fr-read-daily">
+          <div class="reading-level-picker">
+            <button class="level-btn active" data-level="0" data-i18n="fr.levelA1">🧒 A1 · Beginner</button>
+            <button class="level-btn" data-level="1" data-i18n="fr.levelA2">👶 A2 · Elementary</button>
+            <button class="level-btn" data-level="2" data-i18n="fr.levelB1">🧑 B1 · Intermediate</button>
+          </div>
+          <div class="reading-card">
+            <div class="article-meta">
+              <span class="article-tag" id="fr-read-tag" data-i18n="fr.readTag">Lecture</span>
+              <span class="article-date" id="fr-read-level"></span>
+              <button class="read-aloud-btn" data-target="fr-read-body" data-i18n="eng.readAloud">
+                <span>🔊</span> Read Aloud
+              </button>
+            </div>
+            <h2 class="article-title" id="fr-read-title"></h2>
+            <div class="article-body" id="fr-read-body"></div>
+            <div class="reading-translation" id="fr-read-translation">
+              <button class="toggle-translation" id="fr-toggle-trans" data-i18n="fr.showTranslation">Show Translation</button>
+              <div class="translation-text" id="fr-read-trans-text" style="display:none;"></div>
+            </div>
+          </div>
+        </div>
+        <div class="panel-archive" id="fr-read-archive" style="display:none;">
+          <div class="archive-filters">
+            <div class="archive-search-wrap">
+              <input type="text" id="fr-read-archive-search" placeholder="Search reading passages..." maxlength="60" data-i18n-ph="fr.readEmptyHint">
+              <span class="search-icon">🔍</span>
+            </div>
+          </div>
+          <div class="eng-archive-list" id="fr-read-archive-list"></div>
+          <div class="empty-state" id="fr-read-archive-empty">
+            <div class="empty-icon">📖</div>
+            <p class="empty-title" data-i18n="fr.readEmptyTitle">No reading passages archived yet</p>
+            <p class="empty-hint" data-i18n="fr.readEmptyHint">Today's reading will be archived automatically</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Toast notifications -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="data/articles.js"></script>
+  <script src="data/content.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/fetcher.js"></script>
+  <script src="js/todolist.js"></script>
+  <script src="js/english.js"></script>
+  <script src="js/french.js"></script>
+  <script src="js/sync.js"></script>
+  <script src="js/font-language.js"></script>
+  <script src="js/app.js"></script>
+    <!-- ============ Archive Page (v1.9: full-page sub-view, not a modal) ============ -->
+    <div class="archive-page" id="archive-page" hidden>
+      <div class="archive-page-inner">
+        <header class="archive-page-header">
+          <button class="archive-back-btn" id="archive-back-btn" data-i18n-title="archive.back" title="Back">
+            <svg class="ico" aria-hidden="true"><use href="#i-chevron-left"/></svg>
+            <span data-i18n="archive.back">Back</span>
+          </button>
+          <h2 class="archive-page-title">
+            <svg class="ico" aria-hidden="true"><use href="#i-archive"/></svg>
+            <span data-i18n="archive.title">Archive</span>
+          </h2>
+        </header>
+        <div class="archive-page-body">
+          <div class="archive-mode-bar">
+            <span class="archive-mode-chip" id="archive-mode-chip">
+              <svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg>
+              <span id="archive-mode-chip-text" data-i18n="archive.modeRecent7">Last 7 days</span>
+            </span>
+            <button class="archive-reset-btn" id="archive-reset-btn" hidden data-i18n="archive.resetRecent7">Back to last 7 days</button>
+            <button class="archive-cal-btn" id="archive-cal-btn" data-i18n-title="archive.openCalendar" title="Pick a date">
+              <svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg>
+              <span data-i18n="archive.openCalendar">By date</span>
+            </button>
+            <div class="archive-cal-popover" id="archive-cal-popover" hidden></div>
+          </div>
+          <div class="archive-filters">
+            <div class="archive-search-wrap">
+              <input type="text" id="archive-search" placeholder="Search tasks..." maxlength="60" data-i18n-ph="archive.searchPlaceholder">
+              <span class="search-icon"><svg class="ico" aria-hidden="true"><use href="#i-search"/></svg></span>
+            </div>
+            <div class="archive-cat-filter">
+              <button class="todo-tab active" data-archive-cat="all" data-i18n="archive.all">All</button>
+              <button class="todo-tab" data-archive-cat="life" data-i18n="cat.life">Life</button>
+              <button class="todo-tab" data-archive-cat="work" data-i18n="cat.work">Work</button>
+              <button class="todo-tab" data-archive-cat="study" data-i18n="cat.study">Study</button>
+            </div>
+          </div>
+          <div class="archive-group-list" id="archive-list">
+            <!-- dynamically rendered by date groups -->
+          </div>
+          <div class="empty-state" id="archive-empty">
+            <div class="empty-icon"><svg class="ico" aria-hidden="true"><use href="#i-archive"/></svg></div>
+            <p class="empty-title" id="archive-empty-title" data-i18n="archive.emptyTitle">No archived tasks yet</p>
+            <p class="empty-hint" id="archive-empty-hint" data-i18n="archive.emptyHint">Complete tasks to build your archive</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ Import Past Tasks Modal ============ -->
+    <div class="modal-overlay" id="import-modal-overlay" hidden>
+      <div class="modal modal-import" role="dialog" aria-modal="true" aria-labelledby="import-modal-title">
+        <header class="modal-header">
+          <h3 class="modal-title" id="import-modal-title">
+            <svg class="ico" aria-hidden="true"><use href="#i-archive"/></svg>
+            <span data-i18n="import.title">Import past tasks</span>
+          </h3>
+          <button class="modal-close" id="import-modal-close" data-i18n-title="import.cancel" title="Close">
+            <svg class="ico" aria-hidden="true"><use href="#i-close"/></svg>
+          </button>
+        </header>
+        <div class="modal-body">
+          <p class="modal-hint" data-i18n="import.hint">One task per line. Supported formats: plain text, <code>[category]</code> text, <code>[YYYY-MM-DD]</code> text, <code>[YYYY-MM-DD][category]</code> text.</p>
+          <div class="modal-row">
+            <label class="modal-label" data-i18n="import.defaultDate">Default date</label>
+            <input class="modal-input" type="date" id="import-default-date">
+            <span class="modal-micro" data-i18n="import.defaultDateHint">Per-line <code>[YYYY-MM-DD]</code> overrides this</span>
+          </div>
+          <div class="modal-row">
+            <label class="modal-label" data-i18n="import.defaultCat">Default category</label>
+            <div class="todo-category-picker modal-cat-picker" id="import-cat-picker">
+              <button class="cat-btn active" data-cat="life" type="button"><span class="cat-dot life"></span><span data-i18n="cat.life">Life</span></button>
+              <button class="cat-btn" data-cat="work" type="button"><span class="cat-dot work"></span><span data-i18n="cat.work">Work</span></button>
+              <button class="cat-btn" data-cat="study" type="button"><span class="cat-dot study"></span><span data-i18n="cat.study">Study</span></button>
+            </div>
+          </div>
+          <div class="modal-row">
+            <label class="modal-label" data-i18n="import.tasks">Tasks</label>
+            <textarea class="modal-input modal-textarea" id="import-text" rows="8" maxlength="8000" data-i18n-ph="import.placeholder" placeholder="paste or type your past tasks here"></textarea>
+          </div>
+          <div class="modal-preview" id="import-preview">
+            <span class="modal-preview-num" id="import-preview-num">0</span>
+            <span class="modal-preview-lbl" data-i18n="import.previewLbl">tasks will be imported</span>
+            <span class="modal-preview-detail" id="import-preview-detail"></span>
+          </div>
+        </div>
+        <footer class="modal-footer">
+          <button class="modal-btn modal-btn-ghost" id="import-modal-cancel" data-i18n="import.cancel">Cancel</button>
+          <button class="modal-btn modal-btn-primary" id="import-modal-confirm" disabled>
+            <svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>
+            <span data-i18n="import.confirm">Import</span>
+          </button>
+        </footer>
+      </div>
+    </div>
+
+    <!-- ============ Sync Settings Modal ============ -->
+    <div class="modal-overlay" id="sync-modal-overlay" hidden>
+      <div class="modal modal-sync" role="dialog" aria-modal="true" aria-labelledby="sync-modal-title">
+        <header class="modal-header">
+          <h3 class="modal-title" id="sync-modal-title">
+            <svg class="ico" aria-hidden="true"><use href="#i-refresh"/></svg>
+            <span>多设备同步</span>
+          </h3>
+          <button class="modal-close" id="sync-modal-close" title="Close">
+            <svg class="ico" aria-hidden="true"><use href="#i-close"/></svg>
+          </button>
+        </header>
+        <div class="modal-body">
+          <p class="modal-hint">用 Supabase 让电脑 / 手机数据自动共通。填一次，其他设备用同一「同步码」即可共享数据。</p>
+          <div class="modal-row">
+            <label class="modal-label">Supabase URL</label>
+            <input class="modal-input" type="text" id="sync-url" placeholder="https://xxxx.supabase.co" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="modal-row">
+            <label class="modal-label">anon public key</label>
+            <input class="modal-input" type="text" id="sync-key" placeholder="eyJhbGci..." autocomplete="off" spellcheck="false">
+          </div>
+          <div class="modal-row">
+            <label class="modal-label">同步码</label>
+            <div class="sync-code-row">
+              <input class="modal-input" type="text" id="sync-code" placeholder="8 位字母数字" autocomplete="off" spellcheck="false">
+              <button class="modal-btn modal-btn-ghost" id="sync-gen" type="button">随机</button>
+            </div>
+            <span class="modal-micro">同步码相当于密码，不要泄露；多设备用同一个才能共享数据</span>
+          </div>
+          <div class="modal-row sync-enable-row">
+            <label class="sync-switch">
+              <input type="checkbox" id="sync-enabled">
+              <span class="sync-switch-track"><span class="sync-switch-thumb"></span></span>
+              <span>启用同步</span>
+            </label>
+          </div>
+          <div class="modal-row">
+            <label class="modal-label">建表 SQL（在 Supabase SQL Editor 执行一次）</label>
+            <pre class="sync-sql" id="sync-sql">create table if not exists kv_store (
+  key text primary key,
+  value text not null,
+  updated_at timestamptz default now()
+);
+alter table kv_store enable row level security;
+create policy "anon_all" on kv_store for all to anon using (true) with check (true);</pre>
+            <button class="modal-btn modal-btn-ghost" id="sync-copy-sql" type="button">复制 SQL</button>
+          </div>
+          <div class="sync-status-line">
+            <span class="sync-dot" id="sync-status-dot"></span>
+            <span id="sync-status-text">未启用</span>
+          </div>
+        </div>
+        <footer class="modal-footer">
+          <button class="modal-btn modal-btn-ghost" id="sync-now" type="button">立即同步</button>
+          <button class="modal-btn modal-btn-primary" id="sync-save" type="button">
+            <svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>
+            <span>保存</span>
+          </button>
+        </footer>
+      </div>
+    </div>
+
+</body>
+</html>

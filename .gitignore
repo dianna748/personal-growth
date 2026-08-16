@@ -1,0 +1,9 @@
+# Helper / build artifacts — not part of the published site
+_*
+*.ps1
+rollover_test.js
+版本记录.md
+
+# Misc
+node_modules/
+.workbuddy/
