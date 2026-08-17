@@ -912,7 +912,7 @@ const TodoList = (function () {
         '<div class="todo-checkbox" onclick="TodoList.toggle(' + todo.id + ')">' +
           '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' +
         '</div>' +
-        '<span class="todo-text" data-todo-id="' + todo.id + '">' + escapeHtml(todo.text) + '</span>' +
+        '<span class="todo-text" data-todo-id="' + todo.id + '" onclick="TodoList.startEdit(' + todo.id + ')" title="Click to edit">' + escapeHtml(todo.text) + '</span>' +
         metaBlock +
         actionsBlock +
       '</div>' +
@@ -1433,6 +1433,15 @@ const TodoList = (function () {
     addBtn.addEventListener('click', handleAdd);
     input.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') handleAdd();
+    });
+
+    // The "+" button in the filter row scrolls to and focuses the add input.
+    var tabsAddBtn = document.getElementById('todo-tabs-add');
+    if (tabsAddBtn) tabsAddBtn.addEventListener('click', function () {
+      if (input) {
+        input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(function () { input.focus(); }, 250);
+      }
     });
 
     // Filter pills (checklist view)
