@@ -4055,3 +4055,57 @@ html[lang^="zh"] .panel-sub-title .font-zh {
   .nav-item { height: 52px; min-height: 52px; }
 }
 
+/* ============================================================
+   v1.27 — Persistent quick-add row at the bottom of the task list.
+   Renders whether or not the date has any existing tasks, so
+   users always have one obvious place to add. The + filter-pill
+   button focuses this row instead of the top add-bar input.
+   ============================================================ */
+.quick-add-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 3px 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--bloom-line-strong);
+  border-radius: 12px;
+  background: rgba(244, 242, 237, 0.42);
+  transition: border-color .15s ease, background-color .15s ease;
+}
+.quick-add-row:focus-within {
+  border-color: var(--bloom-terracotta);
+  background: var(--bloom-surface);
+}
+.quick-add-icon {
+  flex: 0 0 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--bloom-terracotta);
+}
+.quick-add-row .ico { width: 14px; height: 14px; }
+.quick-add-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--bloom-ink);
+  font-size: 15px;
+  outline: none;
+}
+.quick-add-input::placeholder {
+  color: #929d96;
+}
+
+@media (max-width: 680px) {
+  .quick-add-row {
+    margin: 8px 0 0;
+    padding: 9px 10px;
+    gap: 8px;
+  }
+  .quick-add-input {
+    font-size: 16px;
+  }
+  .quick-add-row .ico { width: 14px; height: 14px; }
+}
+

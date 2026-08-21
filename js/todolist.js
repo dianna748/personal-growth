@@ -105,6 +105,7 @@ const TodoList = (function () {
     for (var i = 0; i < todos.length; i++) {
       if (!todos[i].addedDate) todos[i].addedDate = todos[i].date;
       if (typeof todos[i].rolledOver === 'undefined') todos[i].rolledOver = false;
+      if (typeof todos[i].parentRollover === 'undefined') todos[i].parentRollover = null;
       if (!Array.isArray(todos[i].subtasks)) todos[i].subtasks = [];
     }
   }
@@ -237,14 +238,16 @@ const TodoList = (function () {
     // New tasks land on the currently viewed date (top-right date navigator),
     // not always today. addedDate records when it was actually created.
     var targetDate = viewDate || todayStr();
+    var useCategory = category || currentCategory;
     const todo = {
       id: Date.now() + Math.random(),
       text: text.trim(),
-      category: category,
+      category: useCategory,
       done: false,
       date: targetDate,
       addedDate: todayStr(),
       rolledOver: false,
+      parentRollover: null,
       createdAt: new Date().toISOString(),
       subtasks: []
     };
@@ -382,42 +385,107 @@ const TodoList = (function () {
     App.toast(I18n.t('import.successN', { n: importParsed.length }), 'success');
   }
 
-  /* ---- Rollover: carry unfinished past-due tasks to today ---- */
+  /* ---- Rollover: carry unfinished past-due tasks to today ----
+     v1.27 — changed from "move" to "copy + keep":
+       The original past-due task is left untouched (still listed on its
+       original date) and a fresh copy is created for today with
+       `parentRollover` pointing back at the original. Completing any
+       member of a rollover group marks the whole group done so the past-day
+       record stops lingering as unfinished forever. Removing the original
+       cascades and removes its copies so the chain stays consistent. */
   function rolloverOverdue() {
     var today = todayStr();
-    var count = 0;
-    for (var i = 0; i < todos.length; i++) {
+    var initialLen = todos.length;
+    var added = 0;
+    for (var i = 0; i < initialLen; i++) {
       var t = todos[i];
-      if (!t.done && t.date < today) {
-        t.date = today;
-        t.rolledOver = true;
-        count++;
+      if (!t || t.done || t.date >= today) continue;
+      // Only original tasks spawn new copies (rollover copies never cascade again).
+      if (t.parentRollover) continue;
+      // Idempotency: skip if a copy for today already exists for this original.
+      var hasCopy = false;
+      for (var j = 0; j < todos.length; j++) {
+        if (todos[j].parentRollover === t.id && todos[j].date === today) {
+          hasCopy = true;
+          break;
+        }
+      }
+      if (hasCopy) continue;
+
+      var copy = {
+        id: Date.now() + Math.random() + i,
+        text: t.text,
+        category: t.category,
+        done: false,
+        date: today,
+        addedDate: t.date,
+        rolledOver: true,
+        parentRollover: t.id,
+        createdAt: new Date().toISOString(),
+        subtasks: (t.subtasks || []).map(function (s) {
+          return { id: Date.now() + Math.random(), text: s.text, done: false };
+        })
+      };
+      todos.unshift(copy);
+      added++;
+    }
+    if (added > 0) save();
+    return added;
+  }
+
+  /** Mark every member of a rollover group as done when any member is
+      checked off, so the original past-day entry doesn't linger as
+      "unfinished forever". No-op when t is not part of any rollover group. */
+  function syncRolloverGroup(t) {
+    if (!t) return;
+    var anchorId = t.parentRollover || t.id;
+    for (var k = 0; k < todos.length; k++) {
+      var x = todos[k];
+      if (x === t) continue;
+      if (x.id === anchorId || x.parentRollover === anchorId) {
+        if (!x.done) x.done = true;
       }
     }
-    if (count > 0) save();
-    return count;
   }
 
   function toggle(id) {
-    const todo = todos.find(t => t.id === id);
-    if (todo) {
-      todo.done = !todo.done;
-      save();
-      renderCurrentView();
+    var t = null;
+    for (var i = 0; i < todos.length; i++) {
+      if (todos[i].id === id) { t = todos[i]; break; }
     }
+    if (!t) return;
+    t.done = !t.done;
+    if (t.done) syncRolloverGroup(t);
+    save();
+    renderCurrentView();
   }
 
   function remove(id) {
-    const itemEl = document.querySelector('[data-todo-id="' + id + '"]');
-    if (itemEl) {
-      itemEl.classList.add('leaving');
+    var target = null;
+    for (var i = 0; i < todos.length; i++) {
+      if (todos[i].id === id) { target = todos[i]; break; }
+    }
+    if (!target) return;
+
+    // Cascade: when removing an original that spawned rollover copies,
+    // remove those copies too so the "carry-over" chain stays consistent.
+    var idsToRemove = [id];
+    if (!target.parentRollover) {
+      for (var k = 0; k < todos.length; k++) {
+        if (todos[k].parentRollover === id) idsToRemove.push(todos[k].id);
+      }
+    }
+
+    var firstEl = document.querySelector('[data-todo-id="' + id + '"]');
+    if (firstEl) {
+      firstEl.classList.add('leaving');
       setTimeout(function () {
-        todos = todos.filter(function (t) { return t.id !== id; });
+        todos = todos.filter(function (t) { return idsToRemove.indexOf(t.id) === -1; });
         save();
         renderCurrentView();
       }, 280);
     } else {
-      todos = todos.filter(t => t.id !== id);
+      todos = todos.filter(function (t) { return idsToRemove.indexOf(t.id) === -1; });
       save();
       renderCurrentView();
     }
@@ -803,18 +871,16 @@ const TodoList = (function () {
       }
     }
 
-    // 4) Render flat list with date dividers (no card boxes)
+    // 4) Render flat list with date dividers (no card boxes).
+    //    v1.27: the empty-state placeholder was replaced by a persistent
+    //    quick-add row appended after the last group, so users always see a
+    //    single, obvious way to add a task — whether the date already has
+    //    items or not. The "+" filter-pill button now scrolls/focuses this
+    //    row instead of the top add-bar input.
     if (dates.length === 0) {
-      container.innerHTML = '';
-      empty.classList.add('show');
-      var titleEl = empty.querySelector('.empty-title');
-      if (titleEl) {
-        titleEl.textContent = I18n.t('dateGroup.empty');
-      }
+      container.innerHTML = buildQuickAddRow();
       return;
     }
-    empty.classList.remove('show');
-
     var html = '';
     for (var d = 0; d < dates.length; d++) {
       var date = dates[d];
@@ -838,7 +904,19 @@ const TodoList = (function () {
       }
       html += '</div>';
     }
-    container.innerHTML = html;
+    container.innerHTML = html + buildQuickAddRow();
+  }
+
+  /* ---- Persistent quick-add row (v1.27) ----
+     Lives at the very bottom of the checklist (and is the sole contents
+     when no date groups exist). Sits inside #todo-grouped so the same
+     event-delegation listeners used for swipe / filter pills also catch
+     its Enter/submit behavior. */
+  function buildQuickAddRow() {
+    return '<div class="quick-add-row">' +
+      '<span class="quick-add-icon"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg></span>' +
+      '<input class="quick-add-input" type="text" maxlength="100" placeholder="' + escapeHtml(I18n.t('todo.placeholder')) + '" />' +
+    '</div>';
   }
 
   /* ---- Single todo-item HTML (shared by renderChecklist) ---- */
@@ -1404,6 +1482,10 @@ const TodoList = (function () {
     // Carry over unfinished tasks from previous days onto today
     rolloverOverdue();
 
+    // Held at function scope so both the swipe and quick-add delegations below
+    // can share the same reference (avoids hoisting/undefined surprises).
+    var swipeContainer = document.getElementById('todo-grouped');
+
     // Category picker
     var catBtns = document.querySelectorAll('.cat-btn');
     for (var i = 0; i < catBtns.length; i++) {
@@ -1435,14 +1517,43 @@ const TodoList = (function () {
       if (e.key === 'Enter') handleAdd();
     });
 
-    // The "+" button in the filter row scrolls to and focuses the add input.
+    // The "+" button in the filter row scrolls to and focuses the
+    // persistent quick-add row inside the checklist (v1.27).
     var tabsAddBtn = document.getElementById('todo-tabs-add');
     if (tabsAddBtn) tabsAddBtn.addEventListener('click', function () {
-      if (input) {
+      var qa = document.querySelector('#todo-grouped .quick-add-input');
+      if (qa) {
+        qa.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(function () { qa.focus(); }, 220);
+      } else if (input) {
+        // Fallback before the checklist has rendered.
         input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setTimeout(function () { input.focus(); }, 250);
+        setTimeout(function () { input.focus(); }, 220);
       }
     });
+
+    /* ---- Quick-add: Enter key on the bottom-of-list inline input ----
+       Delegated off the same container as the swipe handler so the row
+       is fully rebuilt on every render without rebinding. */
+    if (swipeContainer && !swipeContainer.dataset.quickAddBound) {
+      swipeContainer.dataset.quickAddBound = '1';
+      swipeContainer.addEventListener('keydown', function (e) {
+        if (!e.target || !e.target.classList || !e.target.classList.contains('quick-add-input')) return;
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          var val = e.target.value.trim();
+          if (!val) {
+            App.toast(I18n.t('todo.toastEmpty'), 'warn');
+            return;
+          }
+          add(val);
+          // After render, refocus the freshly-rendered quick-add input.
+          var refreshed = document.querySelector('#todo-grouped .quick-add-input');
+          if (refreshed) refreshed.focus();
+          App.toast(I18n.t('todo.toastAdded'), 'success');
+        }
+      });
+    }
 
     // Filter pills (checklist view)
     var filterTabs = document.querySelectorAll('#todo-checklist .todo-tab');
@@ -1558,7 +1669,6 @@ const TodoList = (function () {
     /* ---- Touch swipe: reveal todo-item actions on left swipe (mobile) ---- */
     // Delegated: a single touchstart listener on the list container tracks
     // each gesture so we can add/remove a `.swiped` class on the row.
-    var swipeContainer = document.getElementById('todo-grouped');
     if (swipeContainer && !swipeContainer.dataset.swipeBound) {
       swipeContainer.dataset.swipeBound = '1';
       var startX = 0, startY = 0, activeItem = null, tracking = false;
