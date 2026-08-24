@@ -8,7 +8,7 @@
 
 const TodoList = (function () {
   let todos = [];            // all tasks across dates
-  let currentCategory = 'life';
+  let currentCategory = 'work';
   let currentFilter = 'all';
 
   // Archive state
@@ -26,7 +26,7 @@ const TodoList = (function () {
 
   // Import modal state
   let importDefaultDate = todayStr();
-  let importDefaultCat = 'life';
+  let importDefaultCat = 'work';
   let importParsed = [];    // last parsed items for preview
 
   const STORAGE_KEY = 'bloom_todos_v2';
@@ -150,6 +150,12 @@ const TodoList = (function () {
         'Watch TED talk', 'Duolingo streak', 'Anki deck review',
         'Write 5 sentences in French', 'Listen to podcast episode',
         'Grammar drill — past subjunctive'
+      ],
+      media: [
+        'Draft blog post outline', 'Edit video for YouTube', 'Reply to comments',
+        'Schedule next week\'s posts', 'Research trending topic', 'Record voiceover',
+        'Design thumbnail', 'Update content calendar', 'Write newsletter',
+        'Repurpose article into tweet thread'
       ]
     };
 
@@ -170,8 +176,9 @@ const TodoList = (function () {
 
     function pickCategory() {
       var r = Math.random();
-      if (r < 0.45) return 'work';
-      if (r < 0.75) return 'life';
+      if (r < 0.4) return 'work';
+      if (r < 0.6) return 'media';
+      if (r < 0.85) return 'life';
       return 'study';
     }
 
@@ -297,7 +304,9 @@ const TodoList = (function () {
       var raw = cm[1].trim().toLowerCase();
       var map = { '工作': 'work', 'work': 'work', 'travail': 'work',
                   '学习': 'study', 'study': 'study', 'étude': 'study', 'etude': 'study',
-                  '生活': 'life', 'life': 'life', 'vie': 'life' };
+                  '生活': 'life', 'life': 'life', 'vie': 'life',
+                  '自媒体': 'media', '媒体': 'media', 'media': 'media', 'self-media': 'media', 'selfmedia': 'media',
+                  'média': 'media', 'médias': 'media', 'medias': 'media' };
       // v1.9.1: optional completion flag (e.g. [✓] / [x] / [done]) in 2nd [..] slot
       if (raw === 'x' || raw === '\u2713' || raw === 'done' || raw === 'ok' || raw === 'y') {
         done = true;
@@ -317,6 +326,7 @@ const TodoList = (function () {
     if (lower === I18n.t('cat.work')) return 'work';
     if (lower === I18n.t('cat.study')) return 'study';
     if (lower === I18n.t('cat.life')) return 'life';
+    if (lower === I18n.t('cat.media')) return 'media';
     return '';
   }
   function parseImportText(text) {
@@ -899,12 +909,54 @@ const TodoList = (function () {
         '</span>' +
       '</div>';
 
-      for (var m = 0; m < items.length; m++) {
-        html += todoItemHTML(items[m]);
-      }
+      html += renderItemsByCategory(items);
       html += '</div>';
     }
     container.innerHTML = html + buildQuickAddRow();
+  }
+
+  /* v1.28: Render order for category sub-groups inside a single date group.
+     Tasks of unknown categories are pushed to the end (defensive — only
+     happens if a foreign key ever sneaks into localStorage). */
+  var CAT_RENDER_ORDER = ['work', 'media', 'life', 'study'];
+
+  function renderItemsByCategory(items) {
+    var html = '';
+    if (!items.length) return html;
+    // Bucket by category while remembering first-seen order for unknown cats.
+    var byCat = {};
+    var seenOrder = [];
+    for (var i = 0; i < items.length; i++) {
+      var c = items[i].category || 'life';
+      if (!byCat[c]) { byCat[c] = []; seenOrder.push(c); }
+      byCat[c].push(items[i]);
+    }
+    // Final ordered list: known cats first in CAT_RENDER_ORDER, then unknowns.
+    var ordered = [];
+    for (var ci = 0; ci < CAT_RENDER_ORDER.length; ci++) {
+      if (byCat[CAT_RENDER_ORDER[ci]]) ordered.push(CAT_RENDER_ORDER[ci]);
+    }
+    for (var si = 0; si < seenOrder.length; si++) {
+      if (ordered.indexOf(seenOrder[si]) === -1) ordered.push(seenOrder[si]);
+    }
+    var showSub = ordered.length > 1;
+    for (var oi = 0; oi < ordered.length; oi++) {
+      var cat = ordered[oi];
+      var list = byCat[cat];
+      var catDone = 0;
+      for (var li = 0; li < list.length; li++) if (list[li].done) catDone++;
+      if (showSub) {
+        html += '<div class="cat-subgroup-header" data-cat="' + cat + '">' +
+          '<span class="cat-subgroup-dot ' + cat + '"></span>' +
+          '<span class="cat-subgroup-name">' + escapeHtml(catLabel(cat)) + '</span>' +
+          '<span class="cat-subgroup-count">' + catDone + '/' + list.length + '</span>' +
+        '</div>';
+      }
+      for (var ti = 0; ti < list.length; ti++) {
+        html += todoItemHTML(list[ti]);
+      }
+    }
+    return html;
   }
 
   /* ---- Persistent quick-add row (v1.27) ----
@@ -1398,7 +1450,7 @@ const TodoList = (function () {
 
     document.getElementById('dash-total').textContent = todos.length;
 
-    var catCounts = { life: 0, work: 0, study: 0 };
+    var catCounts = { life: 0, work: 0, media: 0, study: 0 };
     for (var c = 0; c < todos.length; c++) {
       if (todos[c].done && catCounts[todos[c].category] !== undefined) {
         catCounts[todos[c].category]++;
@@ -1410,13 +1462,17 @@ const TodoList = (function () {
     }
     document.getElementById('dash-top-cat').textContent = topVal > 0 ? I18n.t('cat.' + topCat) : '--';
 
-    var allCats = { life: 0, work: 0, study: 0 };
+    var allCats = { life: 0, work: 0, media: 0, study: 0 };
     for (var a = 0; a < todos.length; a++) {
       if (allCats[todos[a].category] !== undefined) allCats[todos[a].category]++;
     }
-    var maxCat = Math.max(allCats.life, allCats.work, allCats.study, 1);
+    var maxCat = Math.max(allCats.life, allCats.work, allCats.media, allCats.study, 1);
     document.getElementById('bar-life').style.width = ((allCats.life / maxCat) * 100) + '%';
     document.getElementById('bar-work').style.width = ((allCats.work / maxCat) * 100) + '%';
+    var barMedia = document.getElementById('bar-media');
+    if (barMedia) barMedia.style.width = ((allCats.media / maxCat) * 100) + '%';
+    var barValMedia = document.getElementById('bar-val-media');
+    if (barValMedia) barValMedia.textContent = allCats.media;
     document.getElementById('bar-study').style.width = ((allCats.study / maxCat) * 100) + '%';
     document.getElementById('bar-val-life').textContent = allCats.life;
     document.getElementById('bar-val-work').textContent = allCats.work;

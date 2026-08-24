@@ -255,8 +255,9 @@
   <div class="todo-input-wrap">
     <input type="text" id="todo-input" placeholder="What needs doing today?" maxlength="100" data-i18n-ph="todo.placeholder">
     <div class="todo-category-picker">
-      <button class="cat-btn active" data-cat="life"><span class="cat-dot life"></span><span data-i18n="cat.life">Life</span></button>
-      <button class="cat-btn" data-cat="work"><span class="cat-dot work"></span><span data-i18n="cat.work">Work</span></button>
+      <button class="cat-btn active" data-cat="work"><span class="cat-dot work"></span><span data-i18n="cat.work">Work</span></button>
+      <button class="cat-btn" data-cat="media"><span class="cat-dot media"></span><span data-i18n="cat.media">Media</span></button>
+      <button class="cat-btn" data-cat="life"><span class="cat-dot life"></span><span data-i18n="cat.life">Life</span></button>
       <button class="cat-btn" data-cat="study"><span class="cat-dot study"></span><span data-i18n="cat.study">Study</span></button>
     </div>
   </div>
@@ -309,8 +310,9 @@
         <!-- Filter pills (kept inline, compact) -->
         <div class="todo-tabs">
           <button class="todo-tab active" data-filter="all" data-i18n="archive.all">All</button>
-          <button class="todo-tab" data-filter="life" data-i18n="cat.life">Life</button>
           <button class="todo-tab" data-filter="work" data-i18n="cat.work">Work</button>
+          <button class="todo-tab" data-filter="media" data-i18n="cat.media">Media</button>
+          <button class="todo-tab" data-filter="life" data-i18n="cat.life">Life</button>
           <button class="todo-tab" data-filter="study" data-i18n="cat.study">Study</button>
           <button class="todo-tab-add" id="todo-tabs-add" type="button" title="Add task" aria-label="Add task">
             <svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg>
@@ -379,15 +381,20 @@
         <div class="dash-section">
           <h3 class="dash-section-title" data-i18n="dash.catDist">Category Distribution</h3>
           <div class="dash-bar-chart" id="dash-bar-chart">
-            <div class="bar-row" data-cat="life">
-              <span class="bar-label" data-i18n="cat.life">Life</span>
-              <div class="bar-track"><div class="bar-fill life" id="bar-life"></div></div>
-              <span class="bar-val" id="bar-val-life">0</span>
-            </div>
             <div class="bar-row" data-cat="work">
               <span class="bar-label" data-i18n="cat.work">Work</span>
               <div class="bar-track"><div class="bar-fill work" id="bar-work"></div></div>
               <span class="bar-val" id="bar-val-work">0</span>
+            </div>
+            <div class="bar-row" data-cat="media">
+              <span class="bar-label" data-i18n="cat.media">Media</span>
+              <div class="bar-track"><div class="bar-fill media" id="bar-media"></div></div>
+              <span class="bar-val" id="bar-val-media">0</span>
+            </div>
+            <div class="bar-row" data-cat="life">
+              <span class="bar-label" data-i18n="cat.life">Life</span>
+              <div class="bar-track"><div class="bar-fill life" id="bar-life"></div></div>
+              <span class="bar-val" id="bar-val-life">0</span>
             </div>
             <div class="bar-row" data-cat="study">
               <span class="bar-label" data-i18n="cat.study">Study</span>
@@ -868,8 +875,9 @@
             </div>
             <div class="archive-cat-filter">
               <button class="todo-tab active" data-archive-cat="all" data-i18n="archive.all">All</button>
-              <button class="todo-tab" data-archive-cat="life" data-i18n="cat.life">Life</button>
               <button class="todo-tab" data-archive-cat="work" data-i18n="cat.work">Work</button>
+              <button class="todo-tab" data-archive-cat="media" data-i18n="cat.media">Media</button>
+              <button class="todo-tab" data-archive-cat="life" data-i18n="cat.life">Life</button>
               <button class="todo-tab" data-archive-cat="study" data-i18n="cat.study">Study</button>
             </div>
           </div>
@@ -907,8 +915,9 @@
           <div class="modal-row">
             <label class="modal-label" data-i18n="import.defaultCat">Default category</label>
             <div class="todo-category-picker modal-cat-picker" id="import-cat-picker">
-              <button class="cat-btn active" data-cat="life" type="button"><span class="cat-dot life"></span><span data-i18n="cat.life">Life</span></button>
-              <button class="cat-btn" data-cat="work" type="button"><span class="cat-dot work"></span><span data-i18n="cat.work">Work</span></button>
+              <button class="cat-btn active" data-cat="work" type="button"><span class="cat-dot work"></span><span data-i18n="cat.work">Work</span></button>
+              <button class="cat-btn" data-cat="media" type="button"><span class="cat-dot media"></span><span data-i18n="cat.media">Media</span></button>
+              <button class="cat-btn" data-cat="life" type="button"><span class="cat-dot life"></span><span data-i18n="cat.life">Life</span></button>
               <button class="cat-btn" data-cat="study" type="button"><span class="cat-dot study"></span><span data-i18n="cat.study">Study</span></button>
             </div>
           </div>

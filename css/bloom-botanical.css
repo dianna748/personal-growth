@@ -518,6 +518,11 @@ textarea:focus-visible {
   background: var(--bloom-sage);
 }
 
+.cat-dot.media,
+.bar-fill.media {
+  background: #b0678f;
+}
+
 .todo-add-btn {
   flex: 0 0 48px;
   align-self: center;
@@ -1369,6 +1374,50 @@ textarea:focus-visible {
 
 .todo-cat-tag.study {
   color: #5f8975 !important;
+}
+
+.todo-cat-tag.media {
+  color: #8d4767 !important;
+}
+
+.cat-subgroup-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px 4px 4px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bloom-ink-soft, #5a5751);
+  opacity: 0.85;
+}
+.cat-subgroup-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  background: var(--bloom-sage);
+}
+.cat-subgroup-dot.work { background: #77739d; }
+.cat-subgroup-dot.media { background: #b0678f; }
+.cat-subgroup-dot.life { background: #a3614f; }
+.cat-subgroup-dot.study { background: #5f8975; }
+.cat-subgroup-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cat-subgroup-count {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--bloom-ink-soft, #5a5751);
+  opacity: 0.75;
+  font-weight: 500;
 }
 
 .date-group .todo-item {
