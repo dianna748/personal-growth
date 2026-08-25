@@ -1018,9 +1018,12 @@ const TodoList = (function () {
 
     // Group meta (date-added + category + subtask progress) so mobile can
     // float it to top-right via absolute positioning. Hidden when empty.
-    var metaParts = badge + addedTag +
-      '<span class="todo-cat-tag ' + todo.category + '">' + escapeHtml(catLabel(todo.category)) + '</span>' +
-      progPill;
+    // The cat tag is clickable so the user can re-categorize a task in place.
+    var catTag = '<span class="todo-cat-tag ' + todo.category + ' clickable" ' +
+      'onclick="event.stopPropagation(); TodoList.startChangeCategory(' + todo.id + ', this)" ' +
+      'title="Click to change category">' +
+      escapeHtml(catLabel(todo.category)) + '</span>';
+    var metaParts = badge + addedTag + catTag + progPill;
     var metaBlock = '<div class="todo-meta">' + metaParts + '</div>';
 
     // Group the three action buttons so mobile can swipe-reveal them as a
@@ -1089,6 +1092,91 @@ const TodoList = (function () {
     span.parentNode.insertBefore(input, span.nextSibling);
     input.focus();
     input.select();
+  }
+
+  /* ---- Inline Category Change ----
+     Click the .todo-cat-tag to open a small popover with the 4 category
+     choices. Click an option to apply, click outside to dismiss. */
+  function startChangeCategory(id, anchor) {
+    // Close any other open popovers first
+    var existing = document.querySelector('.cat-popover');
+    if (existing) existing.remove();
+
+    var todo = findTodo(id);
+    if (!todo) return;
+
+    var pop = document.createElement('div');
+    pop.className = 'cat-popover';
+    var cats = ['work', 'media', 'life', 'study'];
+    var html = '';
+    for (var i = 0; i < cats.length; i++) {
+      var c = cats[i];
+      var isCur = (c === todo.category);
+      html += '<button type="button" class="cat-popover-opt' + (isCur ? ' is-current' : '') +
+        '" data-cat="' + c + '">' +
+        '<span class="cat-popover-dot ' + c + '"></span>' +
+        '<span class="cat-popover-label">' + escapeHtml(catLabel(c)) + '</span>' +
+        (isCur ? '<svg class="cat-popover-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' : '') +
+      '</button>';
+    }
+    pop.innerHTML = html;
+
+    document.body.appendChild(pop);
+
+    // Position: prefer below-right of anchor, flip / clamp to viewport.
+    var rect = anchor.getBoundingClientRect();
+    var popRect = pop.getBoundingClientRect();
+    var margin = 8;
+    var top = rect.bottom + margin;
+    var left = rect.right - popRect.width;
+    if (left < margin) left = margin;
+    if (left + popRect.width > window.innerWidth - margin) {
+      left = window.innerWidth - popRect.width - margin;
+    }
+    if (top + popRect.height > window.innerHeight - margin) {
+      top = rect.top - popRect.height - margin;
+      if (top < margin) top = margin;
+    }
+    pop.style.position = 'fixed';
+    pop.style.top = top + 'px';
+    pop.style.left = left + 'px';
+    pop.classList.add('show');
+
+    pop.addEventListener('click', function (e) {
+      var btn = e.target.closest('.cat-popover-opt');
+      if (!btn) return;
+      var newCat = btn.getAttribute('data-cat');
+      commitCategoryChange(id, newCat);
+      closePopover();
+    });
+
+    function onDocClick(ev) {
+      if (pop.contains(ev.target) || ev.target === anchor) return;
+      closePopover();
+    }
+    function onKey(ev) {
+      if (ev.key === 'Escape') closePopover();
+    }
+    function closePopover() {
+      pop.remove();
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('touchstart', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    }
+    setTimeout(function () {
+      document.addEventListener('mousedown', onDocClick);
+      document.addEventListener('touchstart', onDocClick);
+      document.addEventListener('keydown', onKey);
+    }, 0);
+  }
+
+  function commitCategoryChange(id, newCat) {
+    var t = findTodo(id);
+    if (!t) return;
+    if (t.category === newCat) return;
+    t.category = newCat;
+    save();
+    renderCurrentView();
   }
 
   /* ---- Workload Heatmap (GitHub-style) ----
@@ -1784,6 +1872,7 @@ const TodoList = (function () {
   }
 
   return { init, add, toggle, remove, startEdit,
+    startChangeCategory, commitCategoryChange,
     addSubtask, toggleSubtask, removeSubtask, startAddSubtask, commitSubtask, startEditSubtask,
     render: renderCurrentView };
 })();

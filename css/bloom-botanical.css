@@ -1421,12 +1421,12 @@ textarea:focus-visible {
 }
 
 .date-group .todo-item {
-  padding-top: 16px;
-  padding-bottom: 16px;
+  padding-top: 11px;
+  padding-bottom: 11px;
 }
 
 .todo-item .todo-main {
-  gap: 12px;
+  gap: 10px;
 }
 
 .todo-subtask-btn,
@@ -1696,7 +1696,7 @@ body {
 }
 
 .date-group .todo-item {
-  padding: 14px 3px;
+  padding: 11px 2px;
 }
 
 .date-group .todo-item:hover {
@@ -2723,13 +2723,13 @@ html[lang^="zh"] .sidebar-toggle {
 }
 
 .date-group .todo-item {
-  padding-top: 18px;
-  padding-bottom: 18px;
+  padding-top: 13px;
+  padding-bottom: 13px;
 }
 
 .todo-text {
-  font-size: 15px;
-  line-height: 1.42;
+  font-size: 14px;
+  line-height: 1.35;
 }
 
 .todo-roll-badge,
@@ -2880,8 +2880,8 @@ html[lang^="zh"] .reading-card .article-body {
   }
 
   .date-group .todo-item {
-    padding-top: 16px;
-    padding-bottom: 16px;
+    padding-top: 11px;
+    padding-bottom: 11px;
   }
 
   #section-dashboard {
@@ -3986,9 +3986,9 @@ html[lang^="zh"] .panel-sub-title .font-zh {
     display: flex !important;
     align-items: center;
     flex-wrap: wrap;
-    column-gap: 12px;
+    column-gap: 10px;
     row-gap: 4px;
-    padding: 14px 16px 14px 22px;
+    padding: 10px 14px 10px 20px;
   }
   .date-group .todo-checkbox { flex-shrink: 0; }
 
@@ -3996,10 +3996,10 @@ html[lang^="zh"] .panel-sub-title .font-zh {
     flex: 1 1 100%;
     min-width: 0;
     padding-right: 0;
-    padding-top: 26px; /* clear top-right meta block */
-    margin-top: -22px;
-    line-height: 1.42;
-    font-size: 15px;
+    padding-top: 22px; /* clear top-right meta block */
+    margin-top: -18px;
+    line-height: 1.35;
+    font-size: 14px;
     color: var(--bloom-ink);
     overflow-wrap: break-word;
     word-break: normal;
@@ -4156,5 +4156,106 @@ html[lang^="zh"] .panel-sub-title .font-zh {
     font-size: 16px;
   }
   .quick-add-row .ico { width: 14px; height: 14px; }
+}
+
+/* ===== source: bloom-v29-inline-cat-change.css ===== */
+/*
+  Click the inline .todo-cat-tag in any task row to re-categorize without
+  opening the full editor. A small floating popover (4 options + current
+  marked) appears anchored to the tag and dismisses on outside click / Esc.
+*/
+.todo-cat-tag.clickable {
+  cursor: pointer;
+  padding: 0 4px 2px;
+  border-radius: 4px;
+  border-bottom: 1px solid currentColor;
+  transition: background-color 140ms ease, border-bottom-color 140ms ease;
+}
+.todo-cat-tag.clickable:hover,
+.todo-cat-tag.clickable:focus-visible {
+  background: rgba(125, 112, 95, 0.10);
+  border-bottom-color: transparent;
+  outline: none;
+}
+.todo-cat-tag.clickable:active {
+  background: rgba(125, 112, 95, 0.18);
+}
+
+.cat-popover {
+  z-index: 9000;
+  min-width: 168px;
+  padding: 6px;
+  background: #fffdf7;
+  border: 1px solid rgba(37, 72, 61, 0.22);
+  border-radius: 12px;
+  box-shadow: 0 14px 32px rgba(34, 47, 38, 0.18),
+              0 2px 6px rgba(34, 47, 38, 0.10);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+.cat-popover.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+.cat-popover-opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--bloom-ink, #2a2a25);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+.cat-popover-opt:hover,
+.cat-popover-opt:focus-visible {
+  background: rgba(125, 112, 95, 0.10);
+  outline: none;
+}
+.cat-popover-opt.is-current {
+  background: rgba(125, 112, 95, 0.07);
+  color: var(--bloom-ink, #2a2a25);
+  font-weight: 600;
+}
+.cat-popover-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  display: inline-block;
+  background: var(--bloom-sage);
+}
+.cat-popover-dot.work  { background: #77739d; }
+.cat-popover-dot.media { background: #b0678f; }
+.cat-popover-dot.life  { background: #a3614f; }
+.cat-popover-dot.study { background: #5f8975; }
+.cat-popover-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cat-popover-check {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  fill: var(--bloom-terracotta, #c57e6e);
+}
+
+@media (max-width: 680px) {
+  .cat-popover { min-width: 156px; }
+  .cat-popover-opt { padding: 10px 12px; font-size: 14px; }
 }
 
