@@ -179,6 +179,7 @@ const App = (function () {
     var genBtn = document.getElementById('sync-gen');
     var nowBtn = document.getElementById('sync-now');
     var copyBtn = document.getElementById('sync-copy-sql');
+    var exportBtn = document.getElementById('sync-export-backup');
     var urlIn = document.getElementById('sync-url');
     var keyIn = document.getElementById('sync-key');
     var codeIn = document.getElementById('sync-code');
@@ -186,6 +187,25 @@ const App = (function () {
     var statusText = document.getElementById('sync-status-text');
     var statusDot = document.getElementById('sync-status-dot');
     var sidebarDot = document.getElementById('sync-dot');
+
+
+    // Legacy-site migration aid: add a read-only JSON export entry to the
+    // existing sync modal. It never writes to localStorage or changes tasks.
+    if (modal && !exportBtn) {
+      var modalBody = modal.querySelector('.modal-body');
+      if (modalBody) {
+        var backupRow = document.createElement('div');
+        backupRow.className = 'modal-row';
+        backupRow.setAttribute('data-legacy-backup', 'true');
+        backupRow.innerHTML =
+          '<label class="modal-label">本地数据备份</label>' +
+          '<span class="modal-micro">下载当前浏览器中的 Bloom 历史数据，不包含同步地址、密钥或同步码；导出不会修改任何记录。</span>' +
+          '<button class="modal-btn modal-btn-ghost" id="sync-export-backup" type="button">下载 JSON 备份</button>';
+        var statusLine = modalBody.querySelector('.sync-status-line');
+        modalBody.insertBefore(backupRow, statusLine || null);
+        exportBtn = document.getElementById('sync-export-backup');
+      }
+    }
 
     function refreshStatus(s) {
       if (!statusText) return;
@@ -220,6 +240,42 @@ const App = (function () {
           copyBtn.textContent = '已复制';
           setTimeout(function () { copyBtn.textContent = '复制 SQL'; }, 1500);
         } catch (e) {}
+      }
+    });
+    if (exportBtn) exportBtn.addEventListener('click', function () {
+      var data = {};
+      try {
+        for (var i = 0; i < localStorage.length; i++) {
+          var storageKey = localStorage.key(i);
+          if (!storageKey || storageKey.indexOf('bloom_') !== 0) continue;
+          if (storageKey === 'bloom_sync_config') continue;
+          data[storageKey] = localStorage.getItem(storageKey);
+        }
+        var payload = {
+          format: 'bloom-local-backup',
+          version: 1,
+          appVersion: 'legacy-github-pages',
+          exportedAt: new Date().toISOString(),
+          data: data
+        };
+        var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        var objectUrl = URL.createObjectURL(blob);
+        var downloadLink = document.createElement('a');
+        var now = new Date();
+        var stamp = now.getFullYear() +
+          String(now.getMonth() + 1).padStart(2, '0') +
+          String(now.getDate()).padStart(2, '0') + '-' +
+          String(now.getHours()).padStart(2, '0') +
+          String(now.getMinutes()).padStart(2, '0');
+        downloadLink.href = objectUrl;
+        downloadLink.download = 'bloom-legacy-backup-' + stamp + '.json';
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        downloadLink.remove();
+        setTimeout(function () { URL.revokeObjectURL(objectUrl); }, 0);
+        toast('旧版历史数据备份已下载（未修改原记录）', 'success');
+      } catch (e) {
+        toast('备份下载失败，请检查浏览器下载权限', 'warn');
       }
     });
     if (saveBtn) saveBtn.addEventListener('click', function () {
