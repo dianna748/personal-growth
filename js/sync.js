@@ -12,6 +12,8 @@ const Sync = (function () {
   var FETCH_TIMEOUT = 6000;
   var PUSH_DEBOUNCE = 700;
   var TS_PREFIX = '__ts__';
+  var OUTBOX_KEY = '__bloom_sync_outbox_v1';
+  var RECOVERY_KEY = '__bloom_sync_recovery_v1';
 
   var cfg = null;            // {url, anonKey, syncCode, enabled}
   var status = 'off';        // off | idle | syncing | offline | error
@@ -25,6 +27,61 @@ const Sync = (function () {
   function prefKey(k) { return 's_' + (cfg ? cfg.syncCode : '') + '|' + k; }
   function unprefKey(pk) { var i = pk.indexOf('|'); return i < 0 ? pk : pk.slice(i + 1); }
   function tsKey(k) { return TS_PREFIX + k; }
+
+  function isSyncableKey(key) {
+    return typeof key === 'string' && key.indexOf('bloom_') === 0 && key !== CFG_KEY;
+  }
+
+  function persistOutbox() {
+    try { _origSetItem.call(localStorage, OUTBOX_KEY, JSON.stringify(pushQueue)); } catch (e) {}
+  }
+
+  function loadOutbox() {
+    try {
+      var saved = JSON.parse(localStorage.getItem(OUTBOX_KEY) || '{}');
+      if (saved && typeof saved === 'object' && !Array.isArray(saved)) pushQueue = saved;
+    } catch (e) { pushQueue = {}; }
+  }
+
+  function rememberConflict(key, localValue, cloudValue, localTs, cloudTs) {
+    if (localValue === cloudValue) return;
+    try {
+      var entries = JSON.parse(localStorage.getItem(RECOVERY_KEY) || '[]');
+      if (!Array.isArray(entries)) entries = [];
+      entries.unshift({ key: key, savedAt: new Date().toISOString(), localTs: localTs || 0,
+        cloudTs: cloudTs || 0, localValue: localValue, cloudValue: cloudValue });
+      if (entries.length > 5) entries.length = 5;
+      _origSetItem.call(localStorage, RECOVERY_KEY, JSON.stringify(entries));
+    } catch (e) {}
+  }
+
+  function mergeCloudNewer(key, cloudRaw, localRaw) {
+    if (localRaw == null) return cloudRaw;
+    if (key === 'bloom_todos_v2') {
+      try {
+        var cloud = JSON.parse(cloudRaw), local = JSON.parse(localRaw);
+        if (!Array.isArray(cloud) || !Array.isArray(local)) return cloudRaw;
+        var ids = {}, out = cloud.slice();
+        for (var i = 0; i < cloud.length; i++) ids[String(cloud[i].id)] = true;
+        for (var j = 0; j < local.length; j++) if (!ids[String(local[j].id)]) out.push(local[j]);
+        return JSON.stringify(out);
+      } catch (e) { return cloudRaw; }
+    }
+    // Structured learning histories keep local-only fields while accepting
+    // the newer cloud value on the same field.
+    try {
+      var cloudJson = JSON.parse(cloudRaw), localJson = JSON.parse(localRaw);
+      if (cloudJson && localJson && typeof cloudJson === 'object' && typeof localJson === 'object' &&
+          !Array.isArray(cloudJson) && !Array.isArray(localJson)) {
+        var merged = {};
+        var localKeys = Object.keys(localJson), cloudKeys = Object.keys(cloudJson);
+        for (var a = 0; a < localKeys.length; a++) merged[localKeys[a]] = localJson[localKeys[a]];
+        for (var b = 0; b < cloudKeys.length; b++) merged[cloudKeys[b]] = cloudJson[cloudKeys[b]];
+        return JSON.stringify(merged);
+      }
+    } catch (e2) {}
+    return cloudRaw;
+  }
 
   function loadCfg() {
     try { cfg = JSON.parse(localStorage.getItem(CFG_KEY) || 'null'); }
@@ -50,7 +107,10 @@ const Sync = (function () {
     var h = {
       'apikey': cfg.anonKey,
       'Content-Type': 'application/json',
-      'Prefer': 'resolution=merge-duplicates'
+      'Prefer': 'resolution=merge-duplicates',
+      // x-client-info is accepted by Supabase CORS. The companion RLS policy
+      // reads the bloom-sync/<code> suffix and exposes only that namespace.
+      'x-client-info': 'bloom-sync/' + cfg.syncCode
     };
     // 旧版 anon key 是 JWT(eyJ...)，可走 Bearer；新版 publishable key(sb_publishable_) 不是 JWT，
     // 只能走 apikey 头，塞进 Bearer 会被 Supabase 拒绝。故仅对 JWT 补 Bearer 头。
@@ -96,15 +156,23 @@ const Sync = (function () {
           localVal = localStorage.getItem(orig);
           localTs = parseFloat(localStorage.getItem(tsKey(orig)) || '0') || 0;
         } catch (e) {}
+        if (!isSyncableKey(orig)) continue;
         if (localVal === null) {
           writeLocal(orig, rows[i].value, cloudTs);          // missing locally -> take cloud
         } else if (cloudTs > localTs) {
-          writeLocal(orig, rows[i].value, cloudTs);          // cloud newer -> take cloud
+          if (localVal !== rows[i].value) rememberConflict(orig, localVal, rows[i].value, localTs, cloudTs);
+          var mergedCloud = mergeCloudNewer(orig, rows[i].value, localVal);
+          writeLocal(orig, mergedCloud, cloudTs);            // newer cloud wins conflicts; local-only records survive
+          if (mergedCloud !== rows[i].value) queueValue(orig, mergedCloud, Date.now());
+        } else if (localVal !== rows[i].value) {
+          // A local write survived a reload before upload. Durable timestamps
+          // and the outbox ensure it is retried instead of being overwritten.
+          queueValue(orig, localVal, localTs || Date.now());
         }
         // else: local is newer or equal -> keep local
       }
       setStatus('idle');
-    }).catch(function () { setStatus('offline'); });
+    }).catch(function (err) { setStatus('offline'); throw err; });
   }
 
   function flush() {
@@ -112,33 +180,60 @@ const Sync = (function () {
     var keys = Object.keys(pushQueue);
     if (keys.length === 0) return Promise.resolve();
     setStatus('syncing');
-    var payload = keys.map(function (k) {
+    var sending = {};
+    var payload = keys.filter(isSyncableKey).map(function (k) {
+      sending[k] = pushQueue[k];
       return { key: prefKey(k), value: pushQueue[k].value, updated_at: new Date(pushQueue[k].ts).toISOString() };
     });
-    pushQueue = {};
+    if (payload.length === 0) return Promise.resolve();
     var ctrl = ('AbortController' in window) ? new AbortController() : null;
     var opt = { method: 'POST', headers: hdrs(), body: JSON.stringify(payload), signal: ctrl ? ctrl.signal : undefined };
     return withTimeout(fetch(apiURL(), opt), FETCH_TIMEOUT).then(function (r) {
       if (!r.ok) throw new Error('push ' + r.status);
+      var sentKeys = Object.keys(sending);
+      for (var i = 0; i < sentKeys.length; i++) {
+        var key = sentKeys[i];
+        if (pushQueue[key] && pushQueue[key].ts === sending[key].ts) delete pushQueue[key];
+      }
+      persistOutbox();
       setStatus('idle');
-    }).catch(function () { setStatus('offline'); });
+    }).catch(function (err) {
+      // Keep every unsent value in the durable outbox and retry later.
+      persistOutbox();
+      setStatus('offline');
+      throw err;
+    });
+  }
+
+  function queueValue(key, value, ts) {
+    if (!isSyncableKey(key)) return;
+    var stamp = ts || Date.now();
+    pushQueue[key] = { value: value, ts: stamp };
+    try { _origSetItem.call(localStorage, tsKey(key), String(stamp)); } catch (e) {}
+    persistOutbox();
   }
 
   function schedulePush(key, value) {
     if (suppress) return;     // seed writes must never be uploaded
     if (intercepting) return;
+    if (!isSyncableKey(key)) return;
     if (!isEnabled()) return;
-    pushQueue[key] = { value: value, ts: Date.now() };
+    queueValue(key, value, Date.now());
     if (pushTimer) clearTimeout(pushTimer);
-    pushTimer = setTimeout(function () { flush(); }, PUSH_DEBOUNCE);
+    pushTimer = setTimeout(function () { flush().catch(function () {}); }, PUSH_DEBOUNCE);
+  }
+
+  function markDirty(key) {
+    if (!isEnabled() || !isSyncableKey(key)) return;
+    var value = localStorage.getItem(key);
+    if (value !== null) schedulePush(key, value);
   }
 
   function setSuppress(v) { suppress = v; }
 
-  // Adopt cloud as the source of truth. Used when sync is first enabled on a
-  // device that may still hold seed/demo local data, so local never overwrites
-  // the real cloud data. Overwrites local unconditionally for our namespace.
-  function forcePull() {
+  // First connection uses a non-destructive merge. Cloud-only data is adopted,
+  // local-only data is queued, and same-key task arrays keep all unique IDs.
+  function safeFirstSync() {
     if (!isEnabled()) return Promise.resolve();
     setStatus('syncing');
     var url = apiURL() + '?select=key,value,updated_at';
@@ -152,15 +247,35 @@ const Sync = (function () {
       for (var i = 0; i < rows.length; i++) {
         if (rows[i].key.indexOf(prefix) !== 0) continue;
         var orig = unprefKey(rows[i].key);
+        if (!isSyncableKey(orig)) continue;
         var cloudTs = Date.parse(rows[i].updated_at) || 0;
-        writeLocal(orig, rows[i].value, cloudTs);
+        var localValue = localStorage.getItem(orig);
+        if (localValue === null) {
+          writeLocal(orig, rows[i].value, cloudTs);
+        } else if (localValue !== rows[i].value) {
+          rememberConflict(orig, localValue, rows[i].value, 0, cloudTs);
+          var merged = (typeof window !== 'undefined' && window.BackupRestore)
+            ? window.BackupRestore.mergeRaw(orig, rows[i].value, localValue) : localValue;
+          writeLocal(orig, merged, Date.now());
+          queueValue(orig, merged, Date.now());
+        }
       }
+      // Upload local keys that do not exist in the cloud namespace.
+      var cloudKeys = {};
+      for (var r = 0; r < rows.length; r++) if (rows[r].key.indexOf(prefix) === 0) cloudKeys[unprefKey(rows[r].key)] = true;
+      for (var k = 0; k < localStorage.length; k++) {
+        var localKey = localStorage.key(k);
+        if (isSyncableKey(localKey) && !cloudKeys[localKey]) queueValue(localKey, localStorage.getItem(localKey), Date.now());
+      }
+      return flush();
+    }).then(function () {
       setStatus('idle');
-    }).catch(function () { setStatus('offline'); });
+    }).catch(function (err) { setStatus('offline'); throw err; });
   }
 
   function init(afterBoot) {
     loadCfg();
+    loadOutbox();
     // Install interceptor: capture every localStorage write across all modules
     try {
       Storage.prototype.setItem = function (k, v) {
@@ -186,7 +301,7 @@ const Sync = (function () {
   function getStatus() { return status; }
   function genCode() {
     var s = '', chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    for (var i = 0; i < 8; i++) s += chars.charAt(Math.floor(Math.random() * chars.length));
+    for (var i = 0; i < 16; i++) s += chars.charAt(Math.floor(Math.random() * chars.length));
     return s;
   }
 
@@ -194,15 +309,19 @@ const Sync = (function () {
     init: init,
     onStatus: onStatus,
     manualSync: manualSync,
-    forcePull: forcePull,
+    safeFirstSync: safeFirstSync,
+    forcePull: safeFirstSync,
     saveConfig: saveConfig,
     getConfig: getConfig,
     getStatus: getStatus,
     genCode: genCode,
     setSuppress: setSuppress,
+    markDirty: markDirty,
+    isSyncableKey: isSyncableKey,
     isEnabled: isEnabled
   };
 })();
 // 关键修复：顶层 const Sync 不会挂到 window 上，导致 app.js 里所有 `if (window.Sync)` 守卫都为 false、
 // 同步功能形同虚设（点保存无反应、状态卡在“未启用”）。显式挂到 window 即可。
 window.Sync = Sync;
+if (typeof module !== 'undefined' && module.exports) module.exports = Sync;

@@ -180,6 +180,12 @@ const App = (function () {
     var nowBtn = document.getElementById('sync-now');
     var copyBtn = document.getElementById('sync-copy-sql');
     var exportBtn = document.getElementById('sync-export-backup');
+    var importBtn = document.getElementById('sync-import-backup');
+    var backupFile = document.getElementById('sync-backup-file');
+    var backupPreview = document.getElementById('backup-preview');
+    var backupPreviewClose = document.getElementById('backup-preview-close');
+    var restoreMergeBtn = document.getElementById('backup-restore-merge');
+    var restoreOverwriteBtn = document.getElementById('backup-restore-overwrite');
     var urlIn = document.getElementById('sync-url');
     var keyIn = document.getElementById('sync-key');
     var codeIn = document.getElementById('sync-code');
@@ -187,25 +193,6 @@ const App = (function () {
     var statusText = document.getElementById('sync-status-text');
     var statusDot = document.getElementById('sync-status-dot');
     var sidebarDot = document.getElementById('sync-dot');
-
-
-    // Legacy-site migration aid: add a read-only JSON export entry to the
-    // existing sync modal. It never writes to localStorage or changes tasks.
-    if (modal && !exportBtn) {
-      var modalBody = modal.querySelector('.modal-body');
-      if (modalBody) {
-        var backupRow = document.createElement('div');
-        backupRow.className = 'modal-row';
-        backupRow.setAttribute('data-legacy-backup', 'true');
-        backupRow.innerHTML =
-          '<label class="modal-label">本地数据备份</label>' +
-          '<span class="modal-micro">下载当前浏览器中的 Bloom 历史数据，不包含同步地址、密钥或同步码；导出不会修改任何记录。</span>' +
-          '<button class="modal-btn modal-btn-ghost" id="sync-export-backup" type="button">下载 JSON 备份</button>';
-        var statusLine = modalBody.querySelector('.sync-status-line');
-        modalBody.insertBefore(backupRow, statusLine || null);
-        exportBtn = document.getElementById('sync-export-backup');
-      }
-    }
 
     function refreshStatus(s) {
       if (!statusText) return;
@@ -242,42 +229,77 @@ const App = (function () {
         } catch (e) {}
       }
     });
+    var pendingBackupPayload = null;
+
+    function backupStamp() {
+      var d = new Date();
+      return d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0') +
+        '-' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0');
+    }
+
+    function closeBackupPreview() {
+      pendingBackupPayload = null;
+      if (backupPreview) backupPreview.hidden = true;
+      if (backupFile) backupFile.value = '';
+    }
+
     if (exportBtn) exportBtn.addEventListener('click', function () {
-      var data = {};
       try {
-        for (var i = 0; i < localStorage.length; i++) {
-          var storageKey = localStorage.key(i);
-          if (!storageKey || storageKey.indexOf('bloom_') !== 0) continue;
-          if (storageKey === 'bloom_sync_config') continue;
-          data[storageKey] = localStorage.getItem(storageKey);
-        }
-        var payload = {
-          format: 'bloom-local-backup',
-          version: 1,
-          appVersion: 'legacy-github-pages',
-          exportedAt: new Date().toISOString(),
-          data: data
-        };
-        var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-        var objectUrl = URL.createObjectURL(blob);
-        var downloadLink = document.createElement('a');
-        var now = new Date();
-        var stamp = now.getFullYear() +
-          String(now.getMonth() + 1).padStart(2, '0') +
-          String(now.getDate()).padStart(2, '0') + '-' +
-          String(now.getHours()).padStart(2, '0') +
-          String(now.getMinutes()).padStart(2, '0');
-        downloadLink.href = objectUrl;
-        downloadLink.download = 'bloom-legacy-backup-' + stamp + '.json';
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        downloadLink.remove();
-        setTimeout(function () { URL.revokeObjectURL(objectUrl); }, 0);
-        toast('旧版历史数据备份已下载（未修改原记录）', 'success');
+        BackupRestore.download(BackupRestore.buildPayload(), 'bloom-local-backup-' + backupStamp() + '.json');
+        toast('本地备份已下载（不含同步凭据）', 'success');
       } catch (e) {
         toast('备份下载失败，请检查浏览器下载权限', 'warn');
       }
     });
+
+    if (importBtn && backupFile) importBtn.addEventListener('click', function () { backupFile.click(); });
+    if (backupPreviewClose) backupPreviewClose.addEventListener('click', closeBackupPreview);
+    if (backupFile) backupFile.addEventListener('change', function () {
+      var file = backupFile.files && backupFile.files[0];
+      if (!file) return;
+      if (file.size > 10 * 1024 * 1024) {
+        toast('备份文件超过 10MB，已停止读取', 'warn');
+        closeBackupPreview();
+        return;
+      }
+      var reader = new FileReader();
+      reader.onload = function () {
+        try {
+          pendingBackupPayload = BackupRestore.parse(String(reader.result || ''));
+          var summary = BackupRestore.analyze(pendingBackupPayload);
+          document.getElementById('backup-preview-name').textContent = file.name;
+          document.getElementById('backup-count-new').textContent = summary.newCount;
+          document.getElementById('backup-count-duplicate').textContent = summary.duplicateCount;
+          document.getElementById('backup-count-conflict').textContent = summary.conflictCount;
+          var detail = '备份含 ' + summary.incomingTaskCount + ' 条任务、' + summary.incomingKeyCount + ' 个数据字段；其他数据字段：' +
+            summary.otherNew + ' 个新增，' + summary.otherDuplicate + ' 个重复，' + summary.otherConflict + ' 个冲突。';
+          if (summary.conflictTasks.length) detail += ' 冲突示例：' + summary.conflictTasks.join('、');
+          document.getElementById('backup-preview-detail').textContent = detail;
+          backupPreview.hidden = false;
+          backupPreview.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } catch (e) {
+          closeBackupPreview();
+          toast(e.message || '无法读取这个备份文件', 'warn');
+        }
+      };
+      reader.onerror = function () { closeBackupPreview(); toast('备份文件读取失败', 'warn'); };
+      reader.readAsText(file);
+    });
+
+    function runRestore(mode) {
+      if (!pendingBackupPayload) return;
+      try {
+        // Always create a recoverable snapshot before either restore mode.
+        BackupRestore.download(BackupRestore.buildPayload(), 'bloom-before-restore-' + backupStamp() + '.json');
+        BackupRestore.restore(pendingBackupPayload, mode);
+        toast(mode === 'merge' ? '备份已安全合并，页面即将刷新' : '备份数据已覆盖恢复，页面即将刷新', 'success');
+        setTimeout(function () { location.reload(); }, 650);
+      } catch (e) {
+        toast(e.message || '恢复失败，本机数据未改变', 'warn');
+      }
+    }
+    if (restoreMergeBtn) restoreMergeBtn.addEventListener('click', function () { runRestore('merge'); });
+    if (restoreOverwriteBtn) restoreOverwriteBtn.addEventListener('click', function () { runRestore('overwrite'); });
     if (saveBtn) saveBtn.addEventListener('click', function () {
       var c = {
         url: (urlIn ? urlIn.value : '').trim(),
@@ -289,12 +311,23 @@ const App = (function () {
         alert('启用前请填齐 Supabase URL、anon key 和同步码');
         return;
       }
+      if (c.enabled && !/^[A-Za-z0-9]{8,32}$/.test(c.syncCode)) {
+        alert('同步码需为 8–32 位字母或数字，不能包含空格和符号');
+        return;
+      }
+      if (c.enabled && !/^https:\/\//i.test(c.url) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(c.url)) {
+        alert('Supabase URL 必须使用 HTTPS');
+        return;
+      }
       if (window.Sync) {
         Sync.saveConfig(c);
         if (c.enabled) {
           // Adopt the cloud as the source of truth on first enable, so any local
           // seed/demo data is replaced by real cloud data instead of overwriting it.
-          Sync.forcePull().then(function () { location.reload(); });
+          Sync.safeFirstSync().then(function () {
+            toast('首次同步已安全合并', 'success');
+            setTimeout(function () { location.reload(); }, 450);
+          }).catch(function () { toast('同步失败，本机修改已保留并会重试', 'warn'); });
         } else {
           toast('同步配置已保存（未启用）', 'info');
           if (modal) modal.hidden = true;
@@ -303,7 +336,8 @@ const App = (function () {
     });
     if (nowBtn) nowBtn.addEventListener('click', function () {
       if (window.Sync) {
-        Sync.manualSync().then(function () { location.reload(); });
+        Sync.manualSync().then(function () { location.reload(); })
+          .catch(function () { toast('同步失败，本机修改已保留并会重试', 'warn'); });
       }
     });
   }

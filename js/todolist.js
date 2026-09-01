@@ -10,6 +10,9 @@ const TodoList = (function () {
   let todos = [];            // all tasks across dates
   let currentCategory = 'work';
   let currentFilter = 'all';
+  let hideCompleted = false;  // view-only preference; never persisted into history data
+  let dragTodoId = null;
+  let emptyMode = '';
 
   // Archive state
   let archiveSearch = '';
@@ -45,6 +48,92 @@ const TodoList = (function () {
   function fmtDateCN(isoStr) { return I18n.fmtMonthDay(isoStr); }
 
   function catLabel(cat) { return I18n.t('cat.' + cat); }
+
+  var PRIORITY_ORDER = ['high', 'medium', 'low'];
+  var PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
+
+  // Old tasks intentionally remain untouched in storage. A missing/unknown
+  // priority is interpreted as medium only when the task is displayed.
+  function priorityOf(todo) {
+    var p = todo && todo.priority;
+    return PRIORITY_ORDER.indexOf(p) >= 0 ? p : 'medium';
+  }
+
+  function priorityLabel(priority) {
+    return I18n.t('priority.' + priority);
+  }
+
+  function chainRootId(todo) {
+    if (!todo) return null;
+    return todo.taskChainId != null ? todo.taskChainId :
+      (todo.parentRollover != null ? todo.parentRollover : todo.id);
+  }
+
+  function sameChain(a, b) {
+    return a && b && String(chainRootId(a)) === String(chainRootId(b));
+  }
+
+  function dateOnly(value) {
+    return typeof value === 'string' ? value.slice(0, 10) : '';
+  }
+
+  /* Build a display/statistics model without migrating old records. Legacy
+     parentRollover links are interpreted as chains only in memory. */
+  function buildTaskChains(list) {
+    list = list || todos;
+    var byRoot = {};
+    var order = [];
+    for (var i = 0; i < list.length; i++) {
+      var key = String(chainRootId(list[i]));
+      if (!byRoot[key]) { byRoot[key] = []; order.push(key); }
+      byRoot[key].push(list[i]);
+    }
+    var chains = [];
+    for (var j = 0; j < order.length; j++) {
+      var members = byRoot[order[j]].slice().sort(function (a, b) {
+        if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+        return String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
+      });
+      var original = null;
+      for (var m = 0; m < members.length; m++) {
+        if (!members[m].rolledOver && members[m].parentRollover == null) { original = members[m]; break; }
+      }
+      if (!original) original = members[0];
+      var completed = false, completionDate = '', rolloverCount = 0;
+      for (var n = 0; n < members.length; n++) {
+        var member = members[n];
+        if (member.rolledOver || member.parentRollover != null) rolloverCount++;
+        if (member.done) {
+          completed = true;
+          var explicit = dateOnly(member.completedAt || member.chainCompletedAt);
+          if (explicit && (!completionDate || explicit < completionDate)) completionDate = explicit;
+        }
+      }
+      if (completed && !completionDate) {
+        // Legacy completed chains have no completion timestamp. A rollover
+        // chain is conservatively counted on its latest completed copy date.
+        if (rolloverCount > 0) {
+          for (var z = members.length - 1; z >= 0; z--) {
+            if (members[z].done) { completionDate = members[z].date; break; }
+          }
+        } else completionDate = original.date;
+      }
+      chains.push({
+        id: chainRootId(original),
+        original: original,
+        members: members,
+        completed: completed,
+        completionDate: completionDate,
+        rolloverCount: rolloverCount,
+        originalDate: original.originalDate || original.date
+      });
+    }
+    return chains;
+  }
+
+  function touchTodo(todo) {
+    if (todo) todo.updatedAt = new Date().toISOString();
+  }
 
   function isToday(dateStr) { return dateStr === todayStr(); }
   function isYesterday(dateStr) { return dateStr === shiftDate(todayStr(), -1); }
@@ -122,13 +211,15 @@ const TodoList = (function () {
     // If a sync account is configured, the cloud is authoritative — never
     // synthesize local demo data (it would otherwise get pushed over real cloud data).
     if (window.Sync && Sync.getConfig && Sync.getConfig()) return;
-    // Never let the seed writes be queued for upload (so demo can't overwrite cloud).
-    var _suppressSeed = !!(window.Sync && Sync.setSuppress);
-    if (_suppressSeed) Sync.setSuppress(true);
-
     // Skip if user already has tasks, or seed already ran.
     if (todos.length > 0) return;
     if (localStorage.getItem(SEED_FLAG_KEY) === '1') return;
+
+    // Never let the seed writes be queued for upload (so demo can't overwrite cloud).
+    // Important: enable suppression only after the early-return checks above;
+    // otherwise an existing-data session could remain suppressed indefinitely.
+    var _suppressSeed = !!(window.Sync && Sync.setSuppress);
+    if (_suppressSeed) Sync.setSuppress(true);
 
     var pools = {
       life: [
@@ -246,16 +337,21 @@ const TodoList = (function () {
     // not always today. addedDate records when it was actually created.
     var targetDate = viewDate || todayStr();
     var useCategory = category || currentCategory;
+    const newId = Date.now() + Math.random();
+    const createdNow = new Date().toISOString();
     const todo = {
-      id: Date.now() + Math.random(),
+      id: newId,
+      taskChainId: newId,
       text: text.trim(),
       category: useCategory,
+      priority: 'medium',
       done: false,
       date: targetDate,
       addedDate: todayStr(),
       rolledOver: false,
       parentRollover: null,
-      createdAt: new Date().toISOString(),
+      createdAt: createdNow,
+      updatedAt: createdNow,
       subtasks: []
     };
     todos.unshift(todo);
@@ -379,13 +475,16 @@ const TodoList = (function () {
         id: Date.now() + Math.random() + i,
         text: it.text,
         category: it.category,
+        priority: 'medium',
         done: it.done || false,
         date: it.date,
         addedDate: it.date,
         rolledOver: false,
         createdAt: isoStamp,
+        updatedAt: isoStamp,
         subtasks: []
       };
+      t.taskChainId = t.id;
       todos.unshift(t);
       ids.push(t.id);
     }
@@ -405,35 +504,41 @@ const TodoList = (function () {
        cascades and removes its copies so the chain stays consistent. */
   function rolloverOverdue() {
     var today = todayStr();
-    var initialLen = todos.length;
+    var chains = buildTaskChains(todos.slice());
     var added = 0;
-    for (var i = 0; i < initialLen; i++) {
-      var t = todos[i];
-      if (!t || t.done || t.date >= today) continue;
-      // Only original tasks spawn new copies (rollover copies never cascade again).
-      if (t.parentRollover) continue;
-      // Idempotency: skip if a copy for today already exists for this original.
-      var hasCopy = false;
-      for (var j = 0; j < todos.length; j++) {
-        if (todos[j].parentRollover === t.id && todos[j].date === today) {
-          hasCopy = true;
-          break;
-        }
+    for (var i = 0; i < chains.length; i++) {
+      var chain = chains[i];
+      if (chain.completed) continue;
+      var source = null, hasToday = false;
+      for (var j = 0; j < chain.members.length; j++) {
+        var member = chain.members[j];
+        if (member.date === today) hasToday = true;
+        if (!member.done && member.date < today) source = member;
       }
-      if (hasCopy) continue;
-
+      if (hasToday || !source) continue;
+      // Old buggy copies without any parent link cannot be attached safely;
+      // leave them untouched rather than guessing and duplicating history.
+      if (source.rolledOver && source.parentRollover == null && source.taskChainId == null) continue;
+      var copyId = Date.now() + Math.random() + i;
+      var now = new Date().toISOString();
       var copy = {
-        id: Date.now() + Math.random() + i,
-        text: t.text,
-        category: t.category,
+        id: copyId,
+        taskChainId: chain.id,
+        text: source.text,
+        category: source.category,
+        priority: priorityOf(source),
         done: false,
         date: today,
-        addedDate: t.date,
+        addedDate: chain.originalDate,
+        originalDate: chain.originalDate,
         rolledOver: true,
-        parentRollover: t.id,
-        createdAt: new Date().toISOString(),
-        subtasks: (t.subtasks || []).map(function (s) {
-          return { id: Date.now() + Math.random(), text: s.text, done: false };
+        parentRollover: chain.id,
+        rolloverFromId: source.id,
+        rolloverIndex: chain.rolloverCount + 1,
+        createdAt: now,
+        updatedAt: now,
+        subtasks: (source.subtasks || []).map(function (s) {
+          return { id: Date.now() + Math.random(), text: s.text, done: !!s.done };
         })
       };
       todos.unshift(copy);
@@ -448,12 +553,20 @@ const TodoList = (function () {
       "unfinished forever". No-op when t is not part of any rollover group. */
   function syncRolloverGroup(t) {
     if (!t) return;
-    var anchorId = t.parentRollover || t.id;
+    var completed = !!t.done;
+    var completedAt = completed ? new Date().toISOString() : '';
     for (var k = 0; k < todos.length; k++) {
       var x = todos[k];
-      if (x === t) continue;
-      if (x.id === anchorId || x.parentRollover === anchorId) {
-        if (!x.done) x.done = true;
+      if (sameChain(x, t)) {
+        x.done = completed;
+        if (completed) {
+          x.chainCompletedAt = completedAt;
+          if (x === t) x.completedAt = completedAt;
+        } else {
+          delete x.chainCompletedAt;
+          delete x.completedAt;
+        }
+        touchTodo(x);
       }
     }
   }
@@ -465,7 +578,7 @@ const TodoList = (function () {
     }
     if (!t) return;
     t.done = !t.done;
-    if (t.done) syncRolloverGroup(t);
+    syncRolloverGroup(t);
     save();
     renderCurrentView();
   }
@@ -508,6 +621,7 @@ const TodoList = (function () {
     }
     if (todo && newText.trim()) {
       todo.text = newText.trim();
+      touchTodo(todo);
       save();
       renderCurrentView();
     }
@@ -539,6 +653,7 @@ const TodoList = (function () {
       text: text,
       done: false
     });
+    touchTodo(parent);
     save();
     renderCurrentView();
     reopenSubtaskInput(parentId);
@@ -553,6 +668,7 @@ const TodoList = (function () {
     }
     if (sub) {
       sub.done = !sub.done;
+      touchTodo(parent);
       save();
       renderCurrentView();
     }
@@ -562,6 +678,7 @@ const TodoList = (function () {
     var parent = findTodo(parentId);
     if (!parent || !parent.subtasks) return;
     parent.subtasks = parent.subtasks.filter(function (s) { return s.id !== subId; });
+    touchTodo(parent);
     save();
     renderCurrentView();
   }
@@ -623,6 +740,7 @@ const TodoList = (function () {
           for (var i = 0; i < parent.subtasks.length; i++) {
             if (parent.subtasks[i].id === subId) { parent.subtasks[i].text = newText; break; }
           }
+          touchTodo(parent);
           save();
           renderCurrentView();
         }
@@ -701,15 +819,18 @@ const TodoList = (function () {
   function updateAddPlaceholder() {
     var inp = document.getElementById('todo-input');
     if (!inp) return;
+    inp.placeholder = addPlaceholderForView();
+  }
+
+  function addPlaceholderForView() {
     var lang = (typeof I18n !== 'undefined' && I18n.getLang) ? I18n.getLang() : 'en';
     if (isToday(viewDate)) {
-      inp.placeholder = (typeof I18n !== 'undefined' && I18n.t) ? I18n.t('todo.placeholder') : 'What needs doing today?';
-    } else {
-      var dStr = dayMonthShort(viewDate);
-      if (lang === 'zh') inp.placeholder = '为 ' + dStr + ' 添加任务…';
-      else if (lang === 'fr') inp.placeholder = 'Ajouter une tâche pour le ' + dStr + '…';
-      else inp.placeholder = 'Add a task for ' + dStr + '…';
+      return (typeof I18n !== 'undefined' && I18n.t) ? I18n.t('todo.placeholder') : 'What needs doing today?';
     }
+    var dStr = dayMonthShort(viewDate);
+    if (lang === 'zh') return '为 ' + dStr + ' 添加任务…';
+    if (lang === 'fr') return 'Ajouter une tâche pour le ' + dStr + '…';
+    return 'Add a task for ' + dStr + '…';
   }
 
   /* ---- Calendar popover ---- */
@@ -849,11 +970,19 @@ const TodoList = (function () {
     if (!container || !empty) return;
 
     // 1) Apply category filter, then restrict to selected date
+    var dayTasksAll = todos.filter(function (t) { return t.date === viewDate; });
     var visible = todos;
     if (currentFilter !== 'all') {
       visible = todos.filter(function (t) { return t.category === currentFilter; });
     }
     visible = visible.filter(function (t) { return t.date === viewDate; });
+    if (hideCompleted) {
+      visible = visible.filter(function (t) { return !t.done; });
+    }
+
+    updateEmptyState(dayTasksAll, visible);
+
+    renderFocusSummary();
 
     // 3) Group by date descending (today first, then yesterday, etc.)
     var byDate = {};
@@ -915,6 +1044,111 @@ const TodoList = (function () {
     container.innerHTML = html + buildQuickAddRow();
   }
 
+  function updateEmptyState(dayTasks, visible) {
+    var empty = document.getElementById('todo-empty');
+    if (!empty) return;
+    var title = empty.querySelector('.empty-title');
+    var hint = empty.querySelector('.empty-hint');
+    var primary = document.getElementById('todo-empty-primary');
+    var secondary = document.getElementById('todo-empty-secondary');
+    var filtered = dayTasks;
+    if (currentFilter !== 'all') filtered = dayTasks.filter(function (t) { return t.category === currentFilter; });
+    var allDone = dayTasks.length > 0 && dayTasks.every(function (t) { return t.done; });
+    emptyMode = '';
+    if (dayTasks.length === 0) emptyMode = 'blank';
+    else if (allDone || (filtered.length > 0 && filtered.every(function (t) { return t.done; }) && visible.length === 0)) emptyMode = 'complete';
+    else if (currentFilter !== 'all' && filtered.length === 0) emptyMode = 'filter';
+
+    empty.classList.toggle('show', !!emptyMode);
+    empty.classList.toggle('is-complete', emptyMode === 'complete');
+    if (!emptyMode) return;
+    if (title) title.removeAttribute('data-i18n');
+    if (hint) hint.removeAttribute('data-i18n');
+    if (primary) primary.textContent = I18n.t('todo.emptyAddAction');
+    if (emptyMode === 'blank') {
+      if (title) title.textContent = I18n.t('todo.emptyDateTitle');
+      if (hint) hint.textContent = I18n.t('todo.emptyDateHint');
+      if (secondary) {
+        secondary.hidden = isToday(viewDate);
+        secondary.textContent = I18n.t('dn.todayBtn');
+      }
+    } else if (emptyMode === 'complete') {
+      if (title) title.textContent = I18n.t('todo.allDoneTitle');
+      if (hint) hint.textContent = I18n.t('todo.allDoneHint');
+      if (secondary) {
+        secondary.hidden = false;
+        secondary.textContent = I18n.t(hideCompleted ? 'todo.showCompleted' : 'todo.hideCompleted');
+      }
+    } else {
+      if (title) title.textContent = I18n.t('todo.emptyFilterTitle');
+      if (hint) hint.textContent = I18n.t('todo.emptyFilterHint');
+      if (secondary) {
+        secondary.hidden = false;
+        secondary.textContent = I18n.t('archive.all');
+      }
+    }
+  }
+
+  function focusQuickAdd() {
+    var qa = document.querySelector('#todo-grouped .quick-add-input');
+    var fallback = document.getElementById('todo-input');
+    var target = qa || fallback;
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(function () { target.focus(); }, 220);
+  }
+
+  function emptyPrimary() { focusQuickAdd(); }
+
+  function emptySecondary() {
+    if (emptyMode === 'blank') {
+      goToday();
+      renderCurrentView();
+    } else if (emptyMode === 'complete') {
+      hideCompleted = !hideCompleted;
+      renderChecklist();
+    } else if (emptyMode === 'filter') {
+      currentFilter = 'all';
+      var tabs = document.querySelectorAll('#section-daily .todo-tab[data-filter]');
+      for (var i = 0; i < tabs.length; i++) tabs[i].classList.toggle('active', tabs[i].dataset.filter === 'all');
+      renderChecklist();
+    }
+  }
+
+  /* Display-only day summary. Reads the selected day's tasks but never mutates
+     or persists them, so upgrades cannot rewrite historical task records. */
+  function renderFocusSummary() {
+    var value = document.getElementById('focus-summary-value');
+    var progress = document.getElementById('focus-summary-progress');
+    var toggle = document.getElementById('todo-hide-completed');
+    var dayTasks = [];
+    for (var i = 0; i < todos.length; i++) {
+      if (todos[i].date === viewDate) dayTasks.push(todos[i]);
+    }
+    var done = 0;
+    for (var j = 0; j < dayTasks.length; j++) if (dayTasks[j].done) done++;
+    var remaining = dayTasks.length - done;
+    var pct = dayTasks.length ? Math.round(done / dayTasks.length * 100) : 0;
+    if (value) {
+      value.textContent = I18n.t('todo.daySummary', {
+        remaining: remaining,
+        done: done,
+        total: dayTasks.length
+      });
+    }
+    if (progress) progress.style.width = pct + '%';
+    if (toggle) {
+      toggle.setAttribute('aria-pressed', hideCompleted ? 'true' : 'false');
+      toggle.classList.toggle('is-active', hideCompleted);
+      var label = toggle.querySelector('span');
+      if (label) {
+        var key = hideCompleted ? 'todo.showCompleted' : 'todo.hideCompleted';
+        label.textContent = I18n.t(key);
+        label.setAttribute('data-i18n', key);
+      }
+    }
+  }
+
   /* v1.28: Render order for category sub-groups inside a single date group.
      Tasks of unknown categories are pushed to the end (defensive — only
      happens if a foreign key ever sneaks into localStorage). */
@@ -942,7 +1176,7 @@ const TodoList = (function () {
     var showSub = ordered.length > 1;
     for (var oi = 0; oi < ordered.length; oi++) {
       var cat = ordered[oi];
-      var list = byCat[cat];
+      var list = sortTaskList(byCat[cat]);
       var catDone = 0;
       for (var li = 0; li < list.length; li++) if (list[li].done) catDone++;
       if (showSub) {
@@ -959,6 +1193,20 @@ const TodoList = (function () {
     return html;
   }
 
+  function sortTaskList(list) {
+    var indexed = [];
+    for (var i = 0; i < list.length; i++) indexed.push({ task: list[i], index: i });
+    indexed.sort(function (a, b) {
+      var priorityDiff = PRIORITY_RANK[priorityOf(a.task)] - PRIORITY_RANK[priorityOf(b.task)];
+      if (priorityDiff !== 0) return priorityDiff;
+      var ao = (typeof a.task.sortOrder === 'number') ? a.task.sortOrder : Number.MAX_SAFE_INTEGER;
+      var bo = (typeof b.task.sortOrder === 'number') ? b.task.sortOrder : Number.MAX_SAFE_INTEGER;
+      if (ao !== bo) return ao - bo;
+      return a.index - b.index;
+    });
+    return indexed.map(function (entry) { return entry.task; });
+  }
+
   /* ---- Persistent quick-add row (v1.27) ----
      Lives at the very bottom of the checklist (and is the sole contents
      when no date groups exist). Sits inside #todo-grouped so the same
@@ -967,7 +1215,7 @@ const TodoList = (function () {
   function buildQuickAddRow() {
     return '<div class="quick-add-row">' +
       '<span class="quick-add-icon"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg></span>' +
-      '<input class="quick-add-input" type="text" maxlength="100" placeholder="' + escapeHtml(I18n.t('todo.placeholder')) + '" />' +
+      '<input class="quick-add-input" type="text" maxlength="100" placeholder="' + escapeHtml(addPlaceholderForView()) + '" />' +
     '</div>';
   }
 
@@ -976,7 +1224,10 @@ const TodoList = (function () {
     var completedClass = todo.done ? ' completed' : '';
     var rolled = (todo.rolledOver && !todo.done);
     var rolledClass = rolled ? ' rolled-over' : '';
-    var badge = rolled ? '<span class="todo-roll-badge">' + escapeHtml(I18n.t('todo.rolledBadge')) + '</span>' : '';
+    var priority = priorityOf(todo);
+    var rollLabel = todo.rolloverIndex > 1
+      ? I18n.t('todo.rolledBadgeN', { n: todo.rolloverIndex }) : I18n.t('todo.rolledBadge');
+    var badge = rolled ? '<span class="todo-roll-badge">' + escapeHtml(rollLabel) + '</span>' : '';
     var addedTag = '<span class="todo-added-tag' + (rolled ? ' strong' : '') + '">' +
       '<svg class="ico" aria-hidden="true"><use href="#i-clock"/></svg> ' +
       escapeHtml(fmtDateCN(todo.addedDate)) + ' ' + escapeHtml(I18n.t('todo.addedSuffix')) +
@@ -1023,7 +1274,11 @@ const TodoList = (function () {
       'onclick="event.stopPropagation(); TodoList.startChangeCategory(' + todo.id + ', this)" ' +
       'title="Click to change category">' +
       escapeHtml(catLabel(todo.category)) + '</span>';
-    var metaParts = badge + addedTag + catTag + progPill;
+    var priorityTag = '<span class="todo-priority-tag ' + priority + '" ' +
+      'onclick="event.stopPropagation(); TodoList.startChangePriority(' + todo.id + ', this)" ' +
+      'title="' + escapeHtml(I18n.t('todo.changePriority')) + '">' +
+      '<span class="priority-dot"></span><span class="priority-label">' + escapeHtml(priorityLabel(priority)) + '</span></span>';
+    var metaParts = badge + priorityTag + addedTag + catTag + progPill;
     var metaBlock = '<div class="todo-meta">' + metaParts + '</div>';
 
     // Group the three action buttons so mobile can swipe-reveal them as a
@@ -1040,8 +1295,13 @@ const TodoList = (function () {
       '</button>' +
     '</div>';
 
-    return '<div class="todo-item' + completedClass + rolledClass + ' entering" data-todo-id="' + todo.id + '" data-cat="' + todo.category + '">' +
+    var dragLabel = escapeHtml(I18n.t('todo.dragToReorder'));
+    var dragHandle = '<span class="todo-drag-handle" draggable="true" tabindex="0" role="button" ' +
+      'title="' + dragLabel + '" aria-label="' + dragLabel + '"><span aria-hidden="true">⠿</span></span>';
+
+    return '<div class="todo-item' + completedClass + rolledClass + ' entering" data-todo-id="' + todo.id + '" data-cat="' + todo.category + '" data-priority="' + priority + '">' +
       '<div class="todo-main">' +
+        dragHandle +
         '<div class="todo-checkbox" onclick="TodoList.toggle(' + todo.id + ')">' +
           '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' +
         '</div>' +
@@ -1175,8 +1435,142 @@ const TodoList = (function () {
     if (!t) return;
     if (t.category === newCat) return;
     t.category = newCat;
+    delete t.sortOrder;
+    touchTodo(t);
     save();
     renderCurrentView();
+  }
+
+  /* ---- Priority and manual ordering (v1.31) ---- */
+  function startChangePriority(id, anchor) {
+    var existing = document.querySelector('.cat-popover');
+    if (existing) existing.remove();
+    var todo = findTodo(id);
+    if (!todo) return;
+
+    var pop = document.createElement('div');
+    pop.className = 'cat-popover priority-popover';
+    var current = priorityOf(todo);
+    var html = '';
+    for (var i = 0; i < PRIORITY_ORDER.length; i++) {
+      var p = PRIORITY_ORDER[i];
+      var isCurrent = p === current;
+      html += '<button type="button" class="cat-popover-opt priority-popover-opt' + (isCurrent ? ' is-current' : '') +
+        '" data-priority="' + p + '">' +
+        '<span class="priority-popover-dot ' + p + '"></span>' +
+        '<span class="cat-popover-label">' + escapeHtml(priorityLabel(p)) + '</span>' +
+        (isCurrent ? '<svg class="cat-popover-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' : '') +
+      '</button>';
+    }
+    pop.innerHTML = html;
+    document.body.appendChild(pop);
+
+    var rect = anchor.getBoundingClientRect();
+    var popRect = pop.getBoundingClientRect();
+    var margin = 8;
+    var top = rect.bottom + margin;
+    var left = rect.right - popRect.width;
+    if (left < margin) left = margin;
+    if (left + popRect.width > window.innerWidth - margin) left = window.innerWidth - popRect.width - margin;
+    if (top + popRect.height > window.innerHeight - margin) top = Math.max(margin, rect.top - popRect.height - margin);
+    pop.style.position = 'fixed';
+    pop.style.top = top + 'px';
+    pop.style.left = left + 'px';
+    pop.classList.add('show');
+
+    pop.addEventListener('click', function (e) {
+      var btn = e.target.closest('.priority-popover-opt');
+      if (!btn) return;
+      commitPriorityChange(id, btn.getAttribute('data-priority'));
+      closePopover();
+    });
+    function onDocClick(e) {
+      if (pop.contains(e.target) || e.target === anchor) return;
+      closePopover();
+    }
+    function onKey(e) { if (e.key === 'Escape') closePopover(); }
+    function closePopover() {
+      pop.remove();
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('touchstart', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    }
+    setTimeout(function () {
+      document.addEventListener('mousedown', onDocClick);
+      document.addEventListener('touchstart', onDocClick);
+      document.addEventListener('keydown', onKey);
+    }, 0);
+  }
+
+  function commitPriorityChange(id, newPriority) {
+    if (PRIORITY_ORDER.indexOf(newPriority) < 0) return;
+    var todo = findTodo(id);
+    if (!todo || priorityOf(todo) === newPriority) return;
+    todo.priority = newPriority;
+    touchTodo(todo);
+    var group = getReorderGroup(todo);
+    var minOrder = 0;
+    for (var i = 0; i < group.length; i++) {
+      if (group[i].id !== todo.id && typeof group[i].sortOrder === 'number') {
+        minOrder = Math.min(minOrder, group[i].sortOrder);
+      }
+    }
+    todo.sortOrder = minOrder - 100;
+    save();
+    renderCurrentView();
+  }
+
+  function getReorderGroup(todo) {
+    var group = [];
+    var priority = priorityOf(todo);
+    for (var i = 0; i < todos.length; i++) {
+      if (todos[i].date === todo.date && todos[i].category === todo.category && priorityOf(todos[i]) === priority) {
+        group.push(todos[i]);
+      }
+    }
+    return sortTaskList(group);
+  }
+
+  function canReorder(source, target) {
+    return !!(source && target && source.id !== target.id &&
+      source.date === target.date && source.category === target.category &&
+      priorityOf(source) === priorityOf(target));
+  }
+
+  function reorderTask(sourceId, targetId, placeAfter) {
+    var source = findTodo(sourceId);
+    var target = findTodo(targetId);
+    if (!canReorder(source, target)) return false;
+    var group = getReorderGroup(source);
+    var sourceIndex = group.indexOf(source);
+    var targetIndex = group.indexOf(target);
+    if (sourceIndex < 0 || targetIndex < 0) return false;
+    group.splice(sourceIndex, 1);
+    targetIndex = group.indexOf(target);
+    group.splice(targetIndex + (placeAfter ? 1 : 0), 0, source);
+    for (var i = 0; i < group.length; i++) {
+      group[i].sortOrder = i * 100;
+      touchTodo(group[i]);
+    }
+    save();
+    renderChecklist();
+    return true;
+  }
+
+  function moveTaskByKeyboard(id, direction) {
+    var todo = findTodo(id);
+    if (!todo) return;
+    var group = getReorderGroup(todo);
+    var index = group.indexOf(todo);
+    var targetIndex = index + direction;
+    if (index < 0 || targetIndex < 0 || targetIndex >= group.length) return;
+    var target = group[targetIndex];
+    if (reorderTask(id, target.id, direction > 0)) {
+      setTimeout(function () {
+        var handle = document.querySelector('[data-todo-id="' + id + '"] .todo-drag-handle');
+        if (handle) handle.focus();
+      }, 0);
+    }
   }
 
   /* ---- Workload Heatmap (GitHub-style) ----
@@ -1190,16 +1584,17 @@ const TodoList = (function () {
     var totalEl = document.getElementById('heatmap-total-tasks');
     if (!grid) return;
 
-    // Compute per-day totals of COMPLETED tasks (count completed, not all)
+    // Count completed task chains, not every rollover copy.
     var byDay = {};
     var totalDone = 0;
     var activeDays = 0;
-    for (var i = 0; i < todos.length; i++) {
-      var t = todos[i];
-      if (!t.done) continue;
+    var chains = buildTaskChains();
+    for (var i = 0; i < chains.length; i++) {
+      var chain = chains[i];
+      if (!chain.completed || !chain.completionDate) continue;
       totalDone++;
-      if (!byDay[t.date]) byDay[t.date] = 0;
-      byDay[t.date]++;
+      if (!byDay[chain.completionDate]) byDay[chain.completionDate] = 0;
+      byDay[chain.completionDate]++;
     }
     for (var d in byDay) if (byDay[d] > 0) activeDays++;
     if (activeEl) activeEl.textContent = activeDays;
@@ -1497,63 +1892,27 @@ const TodoList = (function () {
     if (e.key === 'Escape') archiveCloseCal();
   }
 
-  /* ---- View: Dashboard (unchanged logic) ---- */
+  /* ---- View: Dashboard — task-chain aware (v1.32) ---- */
   function renderDashboard() {
-    var streak = 0;
-    var checkDate = todayStr();
-    var safety = 0;
-    while (safety++ < 365) {
-      var dayTasks = [];
-      for (var i = 0; i < todos.length; i++) {
-        if (todos[i].date === checkDate) dayTasks.push(todos[i]);
-      }
-      var hasCompleted = false;
-      for (var j = 0; j < dayTasks.length; j++) {
-        if (dayTasks[j].done) { hasCompleted = true; break; }
-      }
-      if (dayTasks.length === 0 && checkDate !== todayStr()) break;
-      if (dayTasks.length > 0 && !hasCompleted) break;
-      if (hasCompleted || checkDate === todayStr()) {
-        if (hasCompleted) streak++;
-        checkDate = shiftDate(checkDate, -1);
-      } else {
-        break;
-      }
-    }
-    document.getElementById('dash-streak').textContent = streak;
-
-    var sevenTotal = 0, sevenDone = 0;
-    var d = todayStr();
-    for (var w = 0; w < 7; w++) {
-      for (var k = 0; k < todos.length; k++) {
-        if (todos[k].date === d) {
-          sevenTotal++;
-          if (todos[k].done) sevenDone++;
-        }
-      }
-      d = shiftDate(d, -1);
-    }
-    var rate = sevenTotal > 0 ? Math.round((sevenDone / sevenTotal) * 100) : 0;
-    document.getElementById('dash-rate').textContent = rate + '%';
-
-    document.getElementById('dash-total').textContent = todos.length;
-
-    var catCounts = { life: 0, work: 0, media: 0, study: 0 };
-    for (var c = 0; c < todos.length; c++) {
-      if (todos[c].done && catCounts[todos[c].category] !== undefined) {
-        catCounts[todos[c].category]++;
-      }
-    }
-    var topCat = 'life', topVal = 0;
-    for (var key in catCounts) {
-      if (catCounts[key] > topVal) { topVal = catCounts[key]; topCat = key; }
-    }
-    document.getElementById('dash-top-cat').textContent = topVal > 0 ? I18n.t('cat.' + topCat) : '--';
-
+    var chains = buildTaskChains();
+    var completed = 0, rollovers = 0, ontime = 0;
     var allCats = { life: 0, work: 0, media: 0, study: 0 };
-    for (var a = 0; a < todos.length; a++) {
-      if (allCats[todos[a].category] !== undefined) allCats[todos[a].category]++;
+    for (var i = 0; i < chains.length; i++) {
+      var chain = chains[i];
+      rollovers += chain.rolloverCount;
+      if (chain.completed) {
+        completed++;
+        if (chain.completionDate && chain.completionDate <= chain.originalDate) ontime++;
+      }
+      var cat = chain.original.category;
+      if (allCats[cat] !== undefined) allCats[cat]++;
     }
+    var ontimeRate = completed ? Math.round(ontime / completed * 100) : 0;
+    document.getElementById('dash-created').textContent = chains.length;
+    document.getElementById('dash-completed').textContent = completed;
+    document.getElementById('dash-rollovers').textContent = rollovers;
+    document.getElementById('dash-ontime').textContent = ontimeRate + '%';
+
     var maxCat = Math.max(allCats.life, allCats.work, allCats.media, allCats.study, 1);
     document.getElementById('bar-life').style.width = ((allCats.life / maxCat) * 100) + '%';
     document.getElementById('bar-work').style.width = ((allCats.work / maxCat) * 100) + '%';
@@ -1566,31 +1925,33 @@ const TodoList = (function () {
     document.getElementById('bar-val-work').textContent = allCats.work;
     document.getElementById('bar-val-study').textContent = allCats.study;
 
+    // Weekly trend compares unique chains created vs chains completed per day.
     var trendHtml = '';
     var trendDate = shiftDate(todayStr(), -6);
     var maxDay = 0;
     var dayData = [];
     for (var t = 0; t < 7; t++) {
-      var dt = 0, dd = 0;
-      for (var u = 0; u < todos.length; u++) {
-        if (todos[u].date === trendDate) { dt++; if (todos[u].done) dd++; }
+      var created = 0, done = 0;
+      for (var u = 0; u < chains.length; u++) {
+        if (chains[u].originalDate === trendDate) created++;
+        if (chains[u].completed && chains[u].completionDate === trendDate) done++;
       }
-      dayData.push({ date: trendDate, total: dt, done: dd });
-      if (dt > maxDay) maxDay = dt;
+      dayData.push({ date: trendDate, total: created, done: done });
+      maxDay = Math.max(maxDay, created, done);
       trendDate = shiftDate(trendDate, 1);
     }
     for (var y = 0; y < dayData.length; y++) {
-      var dd = dayData[y];
-      var pct = maxDay > 0 ? (dd.total / maxDay) * 100 : 0;
-      var donePct = dd.total > 0 ? (dd.done / dd.total) * 100 : 0;
-      var isTodayFlag = isToday(dd.date);
+      var day = dayData[y];
+      var pct = maxDay > 0 ? (day.total / maxDay) * 100 : 0;
+      var donePct = maxDay > 0 ? (day.done / maxDay) * 100 : 0;
+      var isTodayFlag = isToday(day.date);
       trendHtml += '<div class="trend-col' + (isTodayFlag ? ' today' : '') + '">' +
         '<div class="trend-bar-wrap">' +
           '<div class="trend-bar total" style="height:' + pct + '%"></div>' +
           '<div class="trend-bar done" style="height:' + donePct + '%"></div>' +
         '</div>' +
-        '<span class="trend-date">' + fmtShort(dd.date) + '</span>' +
-        '<span class="trend-val">' + dd.done + '/' + dd.total + '</span>' +
+        '<span class="trend-date">' + fmtShort(day.date) + '</span>' +
+        '<span class="trend-val">' + day.done + '/' + day.total + '</span>' +
       '</div>';
     }
     document.getElementById('dash-trend').innerHTML = trendHtml;
@@ -1631,7 +1992,7 @@ const TodoList = (function () {
     var swipeContainer = document.getElementById('todo-grouped');
 
     // Category picker
-    var catBtns = document.querySelectorAll('.cat-btn');
+    var catBtns = document.querySelectorAll('.todo-add-bar--hero .cat-btn');
     for (var i = 0; i < catBtns.length; i++) {
       catBtns[i].addEventListener('click', function () {
         for (var j = 0; j < catBtns.length; j++) catBtns[j].classList.remove('active');
@@ -1664,17 +2025,11 @@ const TodoList = (function () {
     // The "+" button in the filter row scrolls to and focuses the
     // persistent quick-add row inside the checklist (v1.27).
     var tabsAddBtn = document.getElementById('todo-tabs-add');
-    if (tabsAddBtn) tabsAddBtn.addEventListener('click', function () {
-      var qa = document.querySelector('#todo-grouped .quick-add-input');
-      if (qa) {
-        qa.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setTimeout(function () { qa.focus(); }, 220);
-      } else if (input) {
-        // Fallback before the checklist has rendered.
-        input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setTimeout(function () { input.focus(); }, 220);
-      }
-    });
+    if (tabsAddBtn) tabsAddBtn.addEventListener('click', focusQuickAdd);
+    var emptyPrimaryBtn = document.getElementById('todo-empty-primary');
+    var emptySecondaryBtn = document.getElementById('todo-empty-secondary');
+    if (emptyPrimaryBtn) emptyPrimaryBtn.addEventListener('click', emptyPrimary);
+    if (emptySecondaryBtn) emptySecondaryBtn.addEventListener('click', emptySecondary);
 
     /* ---- Quick-add: Enter key on the bottom-of-list inline input ----
        Delegated off the same container as the swipe handler so the row
@@ -1700,7 +2055,7 @@ const TodoList = (function () {
     }
 
     // Filter pills (checklist view)
-    var filterTabs = document.querySelectorAll('#todo-checklist .todo-tab');
+    var filterTabs = document.querySelectorAll('#section-daily .todo-tabs .todo-tab[data-filter]');
     for (var f = 0; f < filterTabs.length; f++) {
       filterTabs[f].addEventListener('click', function () {
         for (var g = 0; g < filterTabs.length; g++) filterTabs[g].classList.remove('active');
@@ -1708,6 +2063,123 @@ const TodoList = (function () {
         currentFilter = this.dataset.filter;
         renderChecklist();
       });
+    }
+
+    // View-only completed-task toggle. It intentionally uses in-memory state
+    // only and cannot alter or migrate saved task history.
+    var hideDoneBtn = document.getElementById('todo-hide-completed');
+    if (hideDoneBtn) hideDoneBtn.addEventListener('click', function () {
+      hideCompleted = !hideCompleted;
+      renderChecklist();
+    });
+
+    /* Priority-aware ordering: drag (mouse), drag handle touch, or keyboard
+       ArrowUp/ArrowDown. Reordering is intentionally limited to tasks with
+       the same date, category and priority so priority bands stay meaningful. */
+    if (swipeContainer && !swipeContainer.dataset.prioritySortBound) {
+      swipeContainer.dataset.prioritySortBound = '1';
+      var touchDragId = null;
+      var touchTargetId = null;
+      var touchPlaceAfter = false;
+      var touchStartY = 0;
+      var touchMoved = false;
+
+      function clearDragMarkers() {
+        var marked = swipeContainer.querySelectorAll('.drag-before, .drag-after, .is-dragging');
+        for (var i = 0; i < marked.length; i++) {
+          marked[i].classList.remove('drag-before', 'drag-after', 'is-dragging');
+        }
+      }
+
+      function markTarget(item, clientY) {
+        clearDragMarkers();
+        var source = findTodo(dragTodoId != null ? dragTodoId : touchDragId);
+        var targetId = Number(item.dataset.todoId);
+        var target = findTodo(targetId);
+        if (!canReorder(source, target)) return false;
+        var rect = item.getBoundingClientRect();
+        var after = clientY > rect.top + rect.height / 2;
+        item.classList.add(after ? 'drag-after' : 'drag-before');
+        if (dragTodoId != null) {
+          var sourceEl = swipeContainer.querySelector('[data-todo-id="' + dragTodoId + '"]');
+          if (sourceEl) sourceEl.classList.add('is-dragging');
+        }
+        touchTargetId = targetId;
+        touchPlaceAfter = after;
+        return true;
+      }
+
+      swipeContainer.addEventListener('dragstart', function (e) {
+        var handle = e.target.closest && e.target.closest('.todo-drag-handle');
+        if (!handle) return;
+        var item = handle.closest('.todo-item');
+        if (!item) return;
+        dragTodoId = Number(item.dataset.todoId);
+        item.classList.add('is-dragging');
+        if (e.dataTransfer) {
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', String(dragTodoId));
+        }
+      });
+      swipeContainer.addEventListener('dragover', function (e) {
+        if (dragTodoId == null) return;
+        var item = e.target.closest && e.target.closest('.todo-item');
+        if (!item || !markTarget(item, e.clientY)) return;
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      });
+      swipeContainer.addEventListener('drop', function (e) {
+        if (dragTodoId == null) return;
+        var item = e.target.closest && e.target.closest('.todo-item');
+        if (item) {
+          e.preventDefault();
+          reorderTask(dragTodoId, Number(item.dataset.todoId), item.classList.contains('drag-after'));
+        }
+        dragTodoId = null;
+        clearDragMarkers();
+      });
+      swipeContainer.addEventListener('dragend', function () {
+        dragTodoId = null;
+        clearDragMarkers();
+      });
+
+      swipeContainer.addEventListener('keydown', function (e) {
+        var handle = e.target.closest && e.target.closest('.todo-drag-handle');
+        if (!handle || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+        e.preventDefault();
+        var item = handle.closest('.todo-item');
+        if (item) moveTaskByKeyboard(Number(item.dataset.todoId), e.key === 'ArrowUp' ? -1 : 1);
+      });
+
+      swipeContainer.addEventListener('touchstart', function (e) {
+        var handle = e.target.closest && e.target.closest('.todo-drag-handle');
+        if (!handle || !e.touches[0]) return;
+        var item = handle.closest('.todo-item');
+        if (!item) return;
+        touchDragId = Number(item.dataset.todoId);
+        touchTargetId = null;
+        touchStartY = e.touches[0].clientY;
+        touchMoved = false;
+      }, { passive: true });
+      swipeContainer.addEventListener('touchmove', function (e) {
+        if (touchDragId == null || !e.touches[0]) return;
+        var touch = e.touches[0];
+        if (!touchMoved && Math.abs(touch.clientY - touchStartY) < 7) return;
+        touchMoved = true;
+        e.preventDefault();
+        var under = document.elementFromPoint(touch.clientX, touch.clientY);
+        var item = under && under.closest ? under.closest('.todo-item') : null;
+        if (item) markTarget(item, touch.clientY);
+      }, { passive: false });
+      swipeContainer.addEventListener('touchend', function () {
+        if (touchMoved && touchDragId != null && touchTargetId != null) {
+          reorderTask(touchDragId, touchTargetId, touchPlaceAfter);
+        }
+        touchDragId = null;
+        touchTargetId = null;
+        touchMoved = false;
+        clearDragMarkers();
+      }, { passive: true });
     }
 
     // History button — enters the full archive page (v1.9)
@@ -1873,6 +2345,8 @@ const TodoList = (function () {
 
   return { init, add, toggle, remove, startEdit,
     startChangeCategory, commitCategoryChange,
+    startChangePriority, commitPriorityChange, reorderTask, moveTaskByKeyboard,
     addSubtask, toggleSubtask, removeSubtask, startAddSubtask, commitSubtask, startEditSubtask,
+    buildTaskChains, rolloverOverdue,
     render: renderCurrentView };
 })();
