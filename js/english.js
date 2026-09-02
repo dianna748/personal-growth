@@ -19,6 +19,10 @@ const English = (function () {
   let currentSentenceIdx = 0;
   let mediaRecorder = null;
   let audioChunks = [];
+  let currentArticleDate = null;
+  let pendingSelection = null;
+  let editorState = null;
+  let selectionEventsBound = false;
 
   const STORAGE_KEY = 'bloom_eng_history';
   const VOCAB_KEY = 'bloom_eng_vocab_lib';
@@ -61,6 +65,32 @@ const English = (function () {
   }
 
   function saveVocabLib(lib) { saveJson(VOCAB_KEY, lib); }
+
+  function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.textContent = text == null ? '' : String(text);
+    return div.innerHTML;
+  }
+
+  function normalizeVocab(v) {
+    v = v || {};
+    return {
+      word: v.word || '',
+      phonetic: v.phonetic || '',
+      englishDefinition: v.englishDefinition || v.meaning || '',
+      contextualChinese: v.contextualChinese || '',
+      exampleSentence: v.exampleSentence || '',
+      morphology: v.morphology || '',
+      personalNote: v.personalNote || '',
+      source: v.source || 'Daily News',
+      articleTitle: v.articleTitle || '',
+      articleUrl: v.articleUrl || '',
+      articleDate: v.articleDate || v.dateAdded || '',
+      dateAdded: v.dateAdded || todayStr(),
+      mastery: v.mastery || (v.mastered ? 'mastered' : 'learning'),
+      mastered: v.mastery ? v.mastery === 'mastered' : !!v.mastered
+    };
+  }
 
   /* ---- Loading state ---- */
   function showLoading(elId) {
@@ -201,6 +231,7 @@ const English = (function () {
     var todayInfo = await getTodayArticle();
     currentArticle = todayInfo.article;
     currentUserVocab = todayInfo.userVocab;
+    currentArticleDate = todayInfo.date;
 
     var news = todayInfo.article;
     document.getElementById('eng-news-source').textContent = news.source;
@@ -238,36 +269,7 @@ const English = (function () {
       });
     });
 
-    document.getElementById('eng-news-body').addEventListener('click', function (e) {
-      var sel = window.getSelection();
-      var word = sel.toString().trim();
-      if (!word || word.length < 2 || word.length > 40) {
-        document.getElementById('word-popup').style.display = 'none';
-        return;
-      }
-      if (e.target.classList.contains('highlight')) {
-        document.getElementById('word-popup').style.display = 'none';
-        return;
-      }
-      if (word.split(/\s+/).length > 5) return;
-      var popup = document.getElementById('word-popup');
-      document.getElementById('word-popup-text').textContent = word;
-      popup.style.display = 'block';
-      popup.style.left = e.clientX + 'px';
-      popup.style.top = (e.clientY - 40) + 'px';
-    });
-
-    document.addEventListener('click', function (e) {
-      if (!e.target.closest('#eng-news-body') && !e.target.closest('#word-popup')) {
-        document.getElementById('word-popup').style.display = 'none';
-      }
-    });
-
-    document.getElementById('word-popup-add').onclick = function () {
-      var word = document.getElementById('word-popup-text').textContent;
-      addUserVocab(word);
-      document.getElementById('word-popup').style.display = 'none';
-    };
+    bindSelectionCapture();
 
     renderUserVocab();
 
@@ -275,34 +277,197 @@ const English = (function () {
     updateCompleteUI(todayInfo.completed);
   }
 
-  function addUserVocab(word) {
-    if (currentUserVocab.includes(word)) {
-      App.toast(I18n.t('toast.vocabExists', { word: word }), 'info');
-      return;
-    }
-    currentUserVocab.push(word);
-    var history = loadHistory();
-    var today = todayStr();
-    if (history[today]) {
-      history[today].userVocab = currentUserVocab;
-      saveHistory(history);
-    }
-    addToVocabLib(word);
-    renderUserVocab();
-    App.toast(I18n.t('toast.vocabAdded', { word: word }), 'success');
+  function selectedSentence(selection) {
+    if (!selection || !selection.rangeCount) return '';
+    var node = selection.getRangeAt(0).commonAncestorContainer;
+    if (node.nodeType === 3) node = node.parentElement;
+    var paragraph = node && node.closest ? node.closest('p, li, blockquote') : null;
+    var text = paragraph ? paragraph.textContent.trim() : '';
+    if (text.length > 700) text = text.slice(0, 697) + '…';
+    return text;
   }
 
-  function addToVocabLib(word) {
-    var lib = loadVocabLib();
-    if (!lib.find(function (v) { return v.word.toLowerCase() === word.toLowerCase(); })) {
-      var source = currentArticle ? currentArticle.source + ' — ' + currentArticle.title : 'Daily News';
-      lib.push({
-        word: word, phonetic: '', meaning: '',
-        source: source,
-        dateAdded: todayStr(), mastered: false
-      });
-      saveVocabLib(lib);
+  function bindSelectionCapture() {
+    if (selectionEventsBound) return;
+    selectionEventsBound = true;
+    var body = document.getElementById('eng-news-body');
+    function showSelection(e) {
+      var sel = window.getSelection();
+      var word = sel ? sel.toString().trim().replace(/\s+/g, ' ') : '';
+      var popup = document.getElementById('word-popup');
+      if (!word || word.length < 2 || word.length > 80 || word.split(/\s+/).length > 8) {
+        popup.style.display = 'none';
+        return;
+      }
+      pendingSelection = {
+        word: word,
+        exampleSentence: selectedSentence(sel),
+        source: currentArticle ? currentArticle.source : 'Daily News',
+        articleTitle: currentArticle ? currentArticle.title : '',
+        articleUrl: currentArticle ? (currentArticle.url || '') : '',
+        articleDate: currentArticleDate || todayStr()
+      };
+      document.getElementById('word-popup-text').textContent = word;
+      var rect = sel.getRangeAt(0).getBoundingClientRect();
+      popup.style.display = 'block';
+      popup.style.left = Math.max(12, Math.min(window.innerWidth - 240, rect.left)) + 'px';
+      popup.style.top = Math.max(12, rect.top - 48) + 'px';
     }
+    body.addEventListener('mouseup', showSelection);
+    body.addEventListener('touchend', function (e) { setTimeout(function () { showSelection(e); }, 30); });
+    document.addEventListener('pointerdown', function (e) {
+      if (!e.target.closest('#eng-news-body') && !e.target.closest('#word-popup')) {
+        document.getElementById('word-popup').style.display = 'none';
+      }
+    });
+    document.getElementById('word-popup-add').addEventListener('click', function () {
+      document.getElementById('word-popup').style.display = 'none';
+      openVocabEditor(pendingSelection || { word: document.getElementById('word-popup-text').textContent });
+    });
+  }
+
+  function addUserVocab(word) {
+    openVocabEditor({
+      word: word,
+      source: currentArticle ? currentArticle.source : 'Daily News',
+      articleTitle: currentArticle ? currentArticle.title : '',
+      articleUrl: currentArticle ? (currentArticle.url || '') : '',
+      articleDate: currentArticleDate || todayStr()
+    });
+  }
+
+  function fieldValue(id) {
+    var el = document.getElementById(id);
+    return el ? el.value.trim() : '';
+  }
+
+  function setField(id, value) {
+    var el = document.getElementById(id);
+    if (el) el.value = value || '';
+  }
+
+  function closeVocabEditor() {
+    var overlay = document.getElementById('vocab-editor-overlay');
+    if (overlay) overlay.hidden = true;
+    editorState = null;
+  }
+
+  function openVocabEditor(input, existingWord) {
+    var lib = loadVocabLib();
+    var existing = existingWord
+      ? lib.find(function (v) { return v.word.toLowerCase() === existingWord.toLowerCase(); })
+      : lib.find(function (v) { return v.word.toLowerCase() === (input.word || '').toLowerCase(); });
+    if (existing && !existingWord) {
+      App.toast(I18n.t('toast.vocabExists', { word: input.word }), 'info');
+      openVocabEditor(existing, existing.word);
+      return;
+    }
+    var draft = normalizeVocab(existing || input);
+    if (!existing) {
+      draft.source = input.source || 'Daily News';
+      draft.articleTitle = input.articleTitle || '';
+      draft.articleUrl = input.articleUrl || '';
+      draft.articleDate = input.articleDate || currentArticleDate || todayStr();
+      draft.exampleSentence = input.exampleSentence || '';
+      draft.dateAdded = todayStr();
+    }
+    editorState = { originalWord: existing ? existing.word : null, isNew: !existing, draft: draft };
+    setField('vocab-edit-word', draft.word);
+    setField('vocab-edit-phonetic', draft.phonetic);
+    setField('vocab-edit-definition', draft.englishDefinition);
+    setField('vocab-edit-chinese', draft.contextualChinese);
+    setField('vocab-edit-example', draft.exampleSentence);
+    setField('vocab-edit-morphology', draft.morphology);
+    setField('vocab-edit-note', draft.personalNote);
+    setField('vocab-edit-source', draft.source + (draft.articleTitle ? ' — ' + draft.articleTitle : ''));
+    setField('vocab-edit-mastery', draft.mastery);
+    var overlay = document.getElementById('vocab-editor-overlay');
+    if (overlay) overlay.hidden = false;
+    var statusEl = document.getElementById('vocab-enrich-status');
+    if (statusEl) statusEl.textContent = existing ? '可修改后保存。' : '正在用免费词典补全，可随时手动修改…';
+    if (!existing) enrichEditor();
+  }
+
+  async function enrichEditor() {
+    var word = fieldValue('vocab-edit-word');
+    if (!word || typeof Fetcher === 'undefined' || !Fetcher.enrichVocab) return;
+    var btn = document.getElementById('vocab-enrich-btn');
+    var statusEl = document.getElementById('vocab-enrich-status');
+    if (btn) btn.disabled = true;
+    if (statusEl) statusEl.textContent = '正在联网查询英英释义、中文含义和词源…';
+    var data = await Fetcher.enrichVocab(word, fieldValue('vocab-edit-example'));
+    if (data) {
+      if (!fieldValue('vocab-edit-phonetic')) setField('vocab-edit-phonetic', data.phonetic);
+      if (!fieldValue('vocab-edit-definition')) setField('vocab-edit-definition', data.englishDefinition);
+      if (!fieldValue('vocab-edit-chinese')) setField('vocab-edit-chinese', data.contextualChinese);
+      if (!fieldValue('vocab-edit-morphology')) setField('vocab-edit-morphology', data.morphology);
+      if (statusEl) statusEl.textContent = data.providerNote;
+    } else if (statusEl) {
+      statusEl.textContent = '暂时没有查到结果，你仍可手动填写并保存。';
+    }
+    if (btn) btn.disabled = false;
+  }
+
+  function saveVocabEditor() {
+    if (!editorState) return;
+    var word = fieldValue('vocab-edit-word');
+    if (!word) { App.toast('请填写 vocab', 'warn'); return; }
+    var lib = loadVocabLib();
+    var duplicate = lib.find(function (v) {
+      return v.word.toLowerCase() === word.toLowerCase() && v.word !== editorState.originalWord;
+    });
+    if (duplicate) { App.toast('词库中已存在 “' + word + '”', 'warn'); return; }
+    var old = editorState.originalWord
+      ? lib.find(function (v) { return v.word === editorState.originalWord; }) : null;
+    old = normalizeVocab(old || editorState.draft || {});
+    var mastery = fieldValue('vocab-edit-mastery') || 'learning';
+    var item = {
+      word: word,
+      phonetic: fieldValue('vocab-edit-phonetic'),
+      englishDefinition: fieldValue('vocab-edit-definition'),
+      contextualChinese: fieldValue('vocab-edit-chinese'),
+      exampleSentence: fieldValue('vocab-edit-example'),
+      morphology: fieldValue('vocab-edit-morphology'),
+      personalNote: fieldValue('vocab-edit-note'),
+      source: old.source || (currentArticle ? currentArticle.source : 'Daily News'),
+      articleTitle: old.articleTitle || (currentArticle ? currentArticle.title : ''),
+      articleUrl: old.articleUrl || (currentArticle ? (currentArticle.url || '') : ''),
+      articleDate: old.articleDate || currentArticleDate || todayStr(),
+      dateAdded: old.dateAdded || todayStr(),
+      mastery: mastery,
+      mastered: mastery === 'mastered'
+    };
+    if (editorState.originalWord) {
+      var idx = lib.findIndex(function (v) { return v.word === editorState.originalWord; });
+      if (idx >= 0) lib[idx] = item;
+      if (word !== editorState.originalWord) {
+        currentUserVocab = currentUserVocab.map(function (w) { return w === editorState.originalWord ? word : w; });
+        var editHistory = loadHistory();
+        var editDate = currentArticleDate || todayStr();
+        if (editHistory[editDate]) {
+          editHistory[editDate].userVocab = currentUserVocab;
+          saveHistory(editHistory);
+        }
+      }
+    } else {
+      lib.push(item);
+      if (!currentUserVocab.some(function (w) { return w.toLowerCase() === word.toLowerCase(); })) {
+        currentUserVocab.push(word);
+        var history = loadHistory();
+        var articleDate = currentArticleDate || todayStr();
+        if (history[articleDate]) {
+          history[articleDate].userVocab = currentUserVocab;
+          saveHistory(history);
+        }
+      }
+    }
+    saveVocabLib(lib);
+    renderUserVocab();
+    if (document.getElementById('eng-vocablib').classList.contains('active')) {
+      renderVocabLib(document.getElementById('vocablib-search').value);
+    }
+    closeVocabEditor();
+    App.toast('已保存 vocab：' + word, 'success');
   }
 
   function renderUserVocab() {
@@ -312,17 +477,23 @@ const English = (function () {
     section.style.display = 'block';
     list.innerHTML = currentUserVocab.map(function (w) {
       return '<div class="vocab-item user-vocab-item">' +
-        '<div class="vocab-word">' + w + '</div>' +
-        '<button class="vocab-remove-btn" onclick="English.removeUserVocab(\'' + w.replace(/'/g, "\\'") + '\')" title="Remove">×</button>' +
+        '<button class="vocab-word vocab-word-button" data-user-vocab-edit="' + escapeHtml(w) + '">' + escapeHtml(w) + '</button>' +
+        '<button class="vocab-remove-btn" data-user-vocab-remove="' + escapeHtml(w) + '" title="Remove">×</button>' +
         '</div>';
     }).join('');
+    list.querySelectorAll('[data-user-vocab-edit]').forEach(function (btn) {
+      btn.addEventListener('click', function () { openVocabEditor({}, btn.dataset.userVocabEdit); });
+    });
+    list.querySelectorAll('[data-user-vocab-remove]').forEach(function (btn) {
+      btn.addEventListener('click', function () { removeUserVocab(btn.dataset.userVocabRemove); });
+    });
   }
 
   function removeUserVocab(word) {
     currentUserVocab = currentUserVocab.filter(function (w) { return w !== word; });
     var history = loadHistory();
-    var today = todayStr();
-    if (history[today]) { history[today].userVocab = currentUserVocab; saveHistory(history); }
+    var articleDate = currentArticleDate || todayStr();
+    if (history[articleDate]) { history[articleDate].userVocab = currentUserVocab; saveHistory(history); }
     renderUserVocab();
     App.toast(I18n.t('toast.vocabRemoved', { word: word }), 'info');
   }
@@ -430,6 +601,7 @@ const English = (function () {
 
     currentUserVocab = entry.userVocab || [];
     currentArticle = article;
+    currentArticleDate = dateStr;
     renderUserVocab();
 
     // Show as completed since all archived articles are completed
@@ -452,61 +624,56 @@ const English = (function () {
      VOCAB LIBRARY TAB
      ================================================ */
   function renderVocabLib(filterText) {
-    var lib = loadVocabLib();
     var grid = document.getElementById('vocablib-grid');
     var empty = document.getElementById('vocablib-empty');
     var totalEl = document.getElementById('vocablib-total');
     var masteredEl = document.getElementById('vocablib-mastered');
-    syncAutoVocab();
     var updatedLib = loadVocabLib();
     var ft = (filterText || '').toLowerCase();
     var filtered = ft
-      ? updatedLib.filter(function (v) { return v.word.toLowerCase().includes(ft) || v.meaning.toLowerCase().includes(ft) || v.source.toLowerCase().includes(ft); })
+      ? updatedLib.filter(function (raw) {
+          var v = normalizeVocab(raw);
+          return [v.word, v.englishDefinition, v.contextualChinese, v.personalNote, v.source]
+            .join(' ').toLowerCase().includes(ft);
+        })
       : updatedLib;
-    var masteredCount = updatedLib.filter(function (v) { return v.mastered; }).length;
+    var masteredCount = updatedLib.filter(function (v) { return normalizeVocab(v).mastery === 'mastered'; }).length;
     totalEl.textContent = updatedLib.length;
     masteredEl.textContent = masteredCount;
     if (filtered.length === 0) { grid.innerHTML = ''; empty.style.display = 'flex'; return; }
     empty.style.display = 'none';
-    grid.innerHTML = filtered.map(function (v, i) {
-      return '<div class="vocablib-card ' + (v.mastered ? 'mastered' : '') + '">' +
+    grid.innerHTML = filtered.map(function (raw) {
+      var v = normalizeVocab(raw);
+      var wordAttr = escapeHtml(v.word);
+      var masteryLabels = { learning: '学习中', reviewing: '复习中', mastered: '已掌握' };
+      return '<div class="vocablib-card ' + (v.mastery === 'mastered' ? 'mastered' : '') + '">' +
         '<div class="vocablib-card-inner">' +
-        '<div class="vocablib-word" onclick="English.speakWord(\'' + v.word.replace(/'/g, "\\'") + '\')">' + v.word + '</div>' +
-        (v.phonetic ? '<div class="vocablib-phonetic">' + v.phonetic + '</div>' : '') +
-        (v.meaning ? '<div class="vocablib-meaning">' + v.meaning + '</div>' : '') +
-        '<div class="vocablib-source">' + v.source + '</div>' +
+        '<button class="vocablib-word vocab-word-button" data-vocab-action="speak" data-word="' + wordAttr + '">' + escapeHtml(v.word) + '</button>' +
+        (v.phonetic ? '<div class="vocablib-phonetic">' + escapeHtml(v.phonetic) + '</div>' : '') +
+        (v.englishDefinition ? '<div class="vocablib-detail"><strong>EN</strong><span>' + escapeHtml(v.englishDefinition) + '</span></div>' : '') +
+        (v.contextualChinese ? '<div class="vocablib-detail"><strong>中</strong><span>' + escapeHtml(v.contextualChinese).replace(/\n/g, '<br>') + '</span></div>' : '') +
+        (v.exampleSentence ? '<div class="vocablib-example">“' + escapeHtml(v.exampleSentence) + '”</div>' : '') +
+        (v.morphology ? '<details class="vocablib-more"><summary>词根词缀 / 词源</summary><p>' + escapeHtml(v.morphology) + '</p></details>' : '') +
+        (v.personalNote ? '<div class="vocablib-note">📝 ' + escapeHtml(v.personalNote) + '</div>' : '') +
+        '<div class="vocablib-source">' + escapeHtml(v.source + (v.articleTitle ? ' — ' + v.articleTitle : '')) + '</div>' +
         '<div class="vocablib-date">Added ' + fmtDate(v.dateAdded) + '</div>' +
         '</div>' +
         '<div class="vocablib-actions">' +
-        '<button class="vocablib-master-btn ' + (v.mastered ? 'unmaster' : '') + '" onclick="English.toggleMasterVocab(\'' + v.word.replace(/'/g, "\\'") + '\')">' + (v.mastered ? '↩ Unmark' : '✓ Mastered') + '</button>' +
-        '<button class="vocablib-del-btn" onclick="English.deleteVocab(\'' + v.word.replace(/'/g, "\\'") + '\')" title="Delete">×</button>' +
+        '<button class="vocablib-edit-btn" data-vocab-action="edit" data-word="' + wordAttr + '">编辑</button>' +
+        '<button class="vocablib-master-btn ' + (v.mastery === 'mastered' ? 'unmaster' : '') + '" data-vocab-action="mastery" data-word="' + wordAttr + '">' + masteryLabels[v.mastery] + '</button>' +
+        '<button class="vocablib-del-btn" data-vocab-action="delete" data-word="' + wordAttr + '" title="Delete">×</button>' +
         '</div></div>';
     }).join('');
-  }
-
-  function syncAutoVocab() {
-    var history = loadHistory();
-    var lib = loadVocabLib();
-    var changed = false;
-    Object.keys(history).forEach(function (dateStr) {
-      var entry = history[dateStr];
-      var article = entry.content || ENGLISH_ARTICLE_POOL[entry.articleIndex];
-      if (!article || !article.vocab) return;
-      article.vocab.forEach(function (v) {
-        if (!lib.find(function (l) { return l.word.toLowerCase() === v.word.toLowerCase(); })) {
-          lib.push({ word: v.word, phonetic: v.phonetic, meaning: v.meaning, source: article.source + ' — ' + article.title, dateAdded: dateStr, mastered: false });
-          changed = true;
-        }
-      });
-    });
-    if (changed) saveVocabLib(lib);
   }
 
   function toggleMasterVocab(wordText) {
     var lib = loadVocabLib();
     var libIdx = lib.findIndex(function (v) { return v.word === wordText; });
     if (libIdx === -1) return;
-    lib[libIdx].mastered = !lib[libIdx].mastered;
+    var item = normalizeVocab(lib[libIdx]);
+    item.mastery = item.mastery === 'learning' ? 'reviewing' : (item.mastery === 'reviewing' ? 'mastered' : 'learning');
+    item.mastered = item.mastery === 'mastered';
+    lib[libIdx] = item;
     saveVocabLib(lib);
     renderVocabLib(document.getElementById('vocablib-search').value);
   }
@@ -907,6 +1074,30 @@ const English = (function () {
     document.getElementById('vocablib-search').addEventListener('input', function () {
       renderVocabLib(this.value);
     });
+    var vocabGrid = document.getElementById('vocablib-grid');
+    if (vocabGrid) vocabGrid.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-vocab-action]');
+      if (!btn) return;
+      var word = btn.dataset.word;
+      if (btn.dataset.vocabAction === 'speak') speakWord(word);
+      if (btn.dataset.vocabAction === 'edit') openVocabEditor({}, word);
+      if (btn.dataset.vocabAction === 'mastery') toggleMasterVocab(word);
+      if (btn.dataset.vocabAction === 'delete') deleteVocab(word);
+    });
+
+    // Manual vocab editor. Nothing is added until the user explicitly saves.
+    var vocabOverlay = document.getElementById('vocab-editor-overlay');
+    var vocabClose = document.getElementById('vocab-editor-close');
+    var vocabCancel = document.getElementById('vocab-editor-cancel');
+    var vocabSave = document.getElementById('vocab-editor-save');
+    var vocabEnrich = document.getElementById('vocab-enrich-btn');
+    if (vocabClose) vocabClose.addEventListener('click', closeVocabEditor);
+    if (vocabCancel) vocabCancel.addEventListener('click', closeVocabEditor);
+    if (vocabSave) vocabSave.addEventListener('click', saveVocabEditor);
+    if (vocabEnrich) vocabEnrich.addEventListener('click', enrichEditor);
+    if (vocabOverlay) vocabOverlay.addEventListener('click', function (e) {
+      if (e.target === vocabOverlay) closeVocabEditor();
+    });
 
     // Listening
     document.getElementById('eng-play-btn').addEventListener('click', function () { playListening(); });
@@ -967,8 +1158,13 @@ const English = (function () {
     completeArticle: completeArticle,
     toggleMasterVocab: toggleMasterVocab,
     deleteVocab: deleteVocab,
+    openVocabEditor: openVocabEditor,
     openListenArchive: openListenArchive,
     openSpeakArchive: openSpeakArchive,
-    openExprArchive: openExprArchive
+    openExprArchive: openExprArchive,
+    _test: { normalizeVocab: normalizeVocab }
   };
 })();
+
+if (typeof window !== 'undefined') window.English = English;
+if (typeof module !== 'undefined' && module.exports) module.exports = English;

@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Bloom · Personal Growth & Learning</title>
-  <link rel="stylesheet" href="css/style.css?v=1.32">
-  <link rel="stylesheet" href="css/bloom-botanical.css?v=1.32">
-  <link rel="stylesheet" href="css/animations.css?v=1.32">
+  <link rel="stylesheet" href="css/style.css?v=1.35">
+  <link rel="stylesheet" href="css/bloom-botanical.css?v=1.35">
+  <link rel="stylesheet" href="css/animations.css?v=1.35">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#25483d">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -845,20 +845,86 @@
     </button>
   </nav>
 
+  <!-- Manual vocab editor: opened only after the reader selects text -->
+  <div class="modal-overlay" id="vocab-editor-overlay" hidden>
+    <div class="modal modal-vocab" role="dialog" aria-modal="true" aria-labelledby="vocab-editor-title">
+      <header class="modal-header">
+        <h3 class="modal-title" id="vocab-editor-title">添加到 Vocab</h3>
+        <button class="modal-close" id="vocab-editor-close" type="button" aria-label="关闭">
+          <svg class="ico" aria-hidden="true"><use href="#i-close"/></svg>
+        </button>
+      </header>
+      <div class="modal-body">
+        <p class="modal-hint">只有你主动选中并保存的词、短语或表达才会进入词库。免费数据源的自动结果可直接修改。</p>
+        <div class="vocab-edit-grid">
+          <div class="modal-row vocab-edit-term">
+            <label class="modal-label" for="vocab-edit-word">Vocab</label>
+            <input class="modal-input" id="vocab-edit-word" maxlength="100">
+          </div>
+          <div class="modal-row">
+            <label class="modal-label" for="vocab-edit-phonetic">音标</label>
+            <input class="modal-input" id="vocab-edit-phonetic" maxlength="100">
+          </div>
+          <div class="modal-row vocab-edit-wide">
+            <label class="modal-label" for="vocab-edit-definition">英英释义</label>
+            <textarea class="modal-input vocab-edit-textarea" id="vocab-edit-definition" rows="2" maxlength="1600"></textarea>
+          </div>
+          <div class="modal-row vocab-edit-wide">
+            <label class="modal-label" for="vocab-edit-chinese">句中英中释义</label>
+            <textarea class="modal-input vocab-edit-textarea" id="vocab-edit-chinese" rows="3" maxlength="1800"></textarea>
+          </div>
+          <div class="modal-row vocab-edit-wide">
+            <label class="modal-label" for="vocab-edit-example">文章例句</label>
+            <textarea class="modal-input vocab-edit-textarea" id="vocab-edit-example" rows="3" maxlength="1800"></textarea>
+          </div>
+          <div class="modal-row vocab-edit-wide">
+            <label class="modal-label" for="vocab-edit-morphology">词根词缀 / 词源</label>
+            <textarea class="modal-input vocab-edit-textarea" id="vocab-edit-morphology" rows="3" maxlength="1800"></textarea>
+          </div>
+          <div class="modal-row vocab-edit-wide">
+            <label class="modal-label" for="vocab-edit-note">个人笔记</label>
+            <textarea class="modal-input vocab-edit-textarea" id="vocab-edit-note" rows="3" maxlength="2400" placeholder="写下你的理解、联想或使用场景…"></textarea>
+          </div>
+          <div class="modal-row vocab-edit-wide">
+            <label class="modal-label" for="vocab-edit-source">文章来源</label>
+            <input class="modal-input" id="vocab-edit-source" readonly>
+          </div>
+          <div class="modal-row">
+            <label class="modal-label" for="vocab-edit-mastery">掌握状态</label>
+            <select class="modal-input" id="vocab-edit-mastery">
+              <option value="learning">学习中</option>
+              <option value="reviewing">复习中</option>
+              <option value="mastered">已掌握</option>
+            </select>
+          </div>
+        </div>
+        <div class="vocab-enrich-line">
+          <button class="modal-btn modal-btn-ghost" id="vocab-enrich-btn" type="button">重新联网补全</button>
+          <span class="modal-micro" id="vocab-enrich-status"></span>
+        </div>
+      </div>
+      <footer class="modal-footer">
+        <button class="modal-btn modal-btn-ghost" id="vocab-editor-cancel" type="button">取消</button>
+        <button class="modal-btn modal-btn-primary" id="vocab-editor-save" type="button">保存到 Vocab 库</button>
+      </footer>
+    </div>
+  </div>
+
   <!-- Toast notifications -->
   <div class="toast-container" id="toast-container"></div>
 
-  <script src="data/articles.js?v=1.32"></script>
-  <script src="data/content.js?v=1.32"></script>
-  <script src="js/i18n.js?v=1.32"></script>
-  <script src="js/fetcher.js?v=1.32"></script>
-  <script src="js/backup.js?v=1.32"></script>
-  <script src="js/todolist.js?v=1.32"></script>
-  <script src="js/english.js?v=1.32"></script>
-  <script src="js/french.js?v=1.32"></script>
-  <script src="js/sync.js?v=1.32"></script>
-  <script src="js/font-language.js?v=1.32"></script>
-  <script src="js/app.js?v=1.32"></script>
+  <script src="data/articles.js?v=1.35"></script>
+  <script src="data/content.js?v=1.35"></script>
+  <script src="js/i18n.js?v=1.35"></script>
+  <script src="js/fetcher.js?v=1.35"></script>
+  <script src="js/backup.js?v=1.35"></script>
+  <script src="js/todolist.js?v=1.35"></script>
+  <script src="js/english.js?v=1.35"></script>
+  <script src="js/french.js?v=1.35"></script>
+  <script src="js/sync.js?v=1.35"></script>
+  <script src="js/font-language.js?v=1.35"></script>
+  <script src="js/notifications.js?v=1.35"></script>
+  <script src="js/app.js?v=1.35"></script>
     <!-- ============ Archive Page (v1.9: full-page sub-view, not a modal) ============ -->
     <div class="archive-page" id="archive-page" hidden>
       <div class="archive-page-inner">
@@ -994,6 +1060,27 @@
               <span class="sync-switch-track"><span class="sync-switch-thumb"></span></span>
               <span>启用同步</span>
             </label>
+          </div>
+          <div class="modal-row push-settings-row">
+            <label class="modal-label">The Economist 更新提醒</label>
+            <span class="modal-micro">允许后，即使 Bloom 页面已关闭，也会由浏览器发送新一期提醒。iPhone / iPad 需先将 Bloom 添加到主屏幕，再从主屏幕打开并允许通知。</span>
+            <div class="push-settings-actions">
+              <button class="modal-btn modal-btn-primary" id="push-enable" type="button">开启网页提醒</button>
+              <button class="modal-btn modal-btn-ghost" id="push-disable" type="button" hidden>关闭提醒</button>
+              <span class="push-status" id="push-status">尚未检查</span>
+            </div>
+          </div>
+          <div class="modal-row demo-cleanup-row">
+            <label class="modal-label">清理 v1.32 样例任务</label>
+            <span class="modal-micro">按旧生成器的标题库、日期及精确时间戳联合识别；不会只凭任务名称删除。清理时会同步删除标记，防止其他设备再次恢复。</span>
+            <div class="demo-cleanup-actions">
+              <button class="modal-btn modal-btn-ghost" id="demo-cleanup-scan" type="button">检测样例数据</button>
+            </div>
+            <div class="demo-cleanup-preview" id="demo-cleanup-preview" hidden>
+              <strong id="demo-cleanup-count">未检测</strong>
+              <div class="demo-cleanup-list" id="demo-cleanup-list"></div>
+              <button class="modal-btn modal-btn-danger" id="demo-cleanup-confirm" type="button">确认删除检测到的样例</button>
+            </div>
           </div>
           <div class="modal-row sync-backup-row">
             <label class="modal-label">本地数据备份</label>

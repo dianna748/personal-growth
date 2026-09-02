@@ -10,6 +10,7 @@ const BackupRestore = (function () {
 
   var FORMAT = 'bloom-local-backup';
   var TODO_KEY = 'bloom_todos_v2';
+  var TOMBSTONE_KEY = 'bloom_todo_tombstones_v1';
   var BLOCKED_KEYS = {
     bloom_sync_config: true
   };
@@ -78,7 +79,7 @@ const BackupRestore = (function () {
     return {
       format: FORMAT,
       version: 2,
-      appVersion: '1.32',
+      appVersion: '1.33',
       exportedAt: new Date().toISOString(),
       data: collectData(storage)
     };
@@ -164,6 +165,20 @@ const BackupRestore = (function () {
 
   function mergeRaw(key, incomingRaw, localRaw) {
     if (localRaw === null) return incomingRaw;
+    if (key === TOMBSTONE_KEY) {
+      try {
+        var incomingDeleted = JSON.parse(incomingRaw || '{}');
+        var localDeleted = JSON.parse(localRaw || '{}');
+        var deleted = {}, deletedIds = {};
+        Object.keys(incomingDeleted).forEach(function (id) { deletedIds[id] = true; });
+        Object.keys(localDeleted).forEach(function (id) { deletedIds[id] = true; });
+        Object.keys(deletedIds).forEach(function (id) {
+          deleted[id] = (Date.parse(localDeleted[id]) || 0) >= (Date.parse(incomingDeleted[id]) || 0)
+            ? localDeleted[id] : incomingDeleted[id];
+        });
+        return JSON.stringify(deleted);
+      } catch (e0) { return localRaw; }
+    }
     if (key === TODO_KEY) {
       var incomingTasks = parseTodos(incomingRaw, '备份任务数据');
       var localTasks = parseTodos(localRaw, '本机任务数据');
@@ -209,6 +224,7 @@ const BackupRestore = (function () {
     } finally {
       if (sync && sync.setSuppress) sync.setSuppress(false);
     }
+    if (sync && sync.applyTodoTombstones) sync.applyTodoTombstones();
     if (sync && sync.markDirty) {
       for (var m = 0; m < keys.length; m++) sync.markDirty(keys[m]);
     }

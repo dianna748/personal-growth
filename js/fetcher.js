@@ -331,6 +331,57 @@ const Fetcher = (function () {
     };
   }
 
+  /* ---- Manual vocab enrichment (free, no API key) ---- */
+  function cleanWikiMarkup(text) {
+    return (text || '')
+      .replace(/<!--[^]*?-->/g, ' ')
+      .replace(/<ref[^>]*>[^]*?<\/ref>/gi, ' ')
+      .replace(/<ref[^>]*\/\s*>/gi, ' ')
+      .replace(/\{\{(?:[^{}]|\{[^{}]*\})*\}\}/g, ' ')
+      .replace(/\[\[(?:[^\]|]*\|)?([^\]]+)\]\]/g, '$1')
+      .replace(/'{2,}/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  async function fetchEtymology(term) {
+    var url = 'https://en.wiktionary.org/w/api.php?action=parse&format=json&prop=wikitext' +
+      '&page=' + encodeURIComponent(term) + '&origin=*';
+    var data = await fetchJSON(url, 8000);
+    var raw = data && data.parse && data.parse.wikitext && data.parse.wikitext['*'];
+    if (!raw) return '';
+    var englishStart = raw.search(/==English==/i);
+    if (englishStart >= 0) raw = raw.slice(englishStart);
+    var match = raw.match(/={3,4}Etymology(?:\s+\d+)?={3,4}([^]*?)(?=\n={3,4}[^=]|$)/i);
+    if (!match) return '';
+    var cleaned = cleanWikiMarkup(match[1]);
+    return cleaned.length > 700 ? cleaned.slice(0, 697) + '…' : cleaned;
+  }
+
+  async function enrichVocab(term, sentence) {
+    term = (term || '').trim();
+    sentence = (sentence || '').trim();
+    if (!term) return null;
+    var isSingleWord = term.split(/\s+/).length === 1;
+    var jobs = [
+      isSingleWord ? fetchWordDefinition(term) : Promise.resolve(null),
+      translateText(term, 'en', 'zh'),
+      sentence ? translateText(sentence, 'en', 'zh') : Promise.resolve(null),
+      isSingleWord ? fetchEtymology(term) : Promise.resolve('')
+    ];
+    var results = await Promise.all(jobs);
+    var definition = results[0];
+    var contextual = results[1] || '';
+    if (results[2]) contextual += (contextual ? '\n' : '') + '整句参考：' + results[2];
+    return {
+      phonetic: definition ? definition.phonetic : '',
+      englishDefinition: definition ? definition.meaning : '',
+      contextualChinese: contextual,
+      morphology: results[3] || '',
+      providerNote: '免费词典、MyMemory 与 Wiktionary 自动补全；请结合原文校对。'
+    };
+  }
+
   /* ================================================================
      ENGLISH: Listening — Random Wikipedia article sentences
      ================================================================ */
@@ -680,6 +731,7 @@ const Fetcher = (function () {
     fetchFrenchReading: fetchFrenchReading,
     translateText: translateText,
     fetchWordDefinition: fetchWordDefinition,
+    enrichVocab: enrichVocab,
     fmtDate: fmtDate,
     dateStr: dateStr
   };

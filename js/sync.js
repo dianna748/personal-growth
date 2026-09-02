@@ -8,6 +8,8 @@ const Sync = (function () {
   'use strict';
 
   var CFG_KEY = 'bloom_sync_config';
+  var TODO_KEY = 'bloom_todos_v2';
+  var TOMBSTONE_KEY = 'bloom_todo_tombstones_v1';
   var TABLE = 'kv_store';
   var FETCH_TIMEOUT = 6000;
   var PUSH_DEBOUNCE = 700;
@@ -55,18 +57,77 @@ const Sync = (function () {
     } catch (e) {}
   }
 
+  function parseTombstones(raw) {
+    try {
+      var value = JSON.parse(raw || '{}');
+      return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    } catch (e) { return {}; }
+  }
+
+  function mergeTombstones(cloudRaw, localRaw) {
+    var cloud = parseTombstones(cloudRaw), local = parseTombstones(localRaw), merged = {};
+    var ids = {};
+    Object.keys(cloud).forEach(function (id) { ids[id] = true; });
+    Object.keys(local).forEach(function (id) { ids[id] = true; });
+    Object.keys(ids).forEach(function (id) {
+      var cloudTime = Date.parse(cloud[id]) || 0;
+      var localTime = Date.parse(local[id]) || 0;
+      merged[id] = localTime >= cloudTime ? local[id] : cloud[id];
+    });
+    return JSON.stringify(merged);
+  }
+
+  function filterTodosRaw(todoRaw, tombstoneRaw) {
+    try {
+      var todos = JSON.parse(todoRaw || '[]');
+      if (!Array.isArray(todos)) return todoRaw;
+      var tombstones = parseTombstones(tombstoneRaw);
+      var filtered = todos.filter(function (todo) {
+        return !todo || todo.id == null || !tombstones[String(todo.id)];
+      });
+      return JSON.stringify(filtered);
+    } catch (e) { return todoRaw; }
+  }
+
+  // Deletion is represented explicitly, rather than inferred from an item being
+  // absent. This prevents an older cloud/device copy from resurrecting a task.
+  function applyTodoTombstones() {
+    var current = localStorage.getItem(TODO_KEY);
+    if (current === null) return false;
+    var filtered = filterTodosRaw(current, localStorage.getItem(TOMBSTONE_KEY));
+    if (filtered === current) return false;
+    var stamp = Date.now();
+    writeLocal(TODO_KEY, filtered, stamp);
+    if (isEnabled()) queueValue(TODO_KEY, filtered, stamp);
+    return true;
+  }
+
+  function markTodosDeleted(ids) {
+    if (!Array.isArray(ids)) ids = [ids];
+    var tombstones = parseTombstones(localStorage.getItem(TOMBSTONE_KEY));
+    var deletedAt = new Date().toISOString();
+    for (var i = 0; i < ids.length; i++) {
+      if (ids[i] != null) tombstones[String(ids[i])] = deletedAt;
+    }
+    var raw = JSON.stringify(tombstones);
+    _origSetItem.call(localStorage, TOMBSTONE_KEY, raw);
+    if (isEnabled()) queueValue(TOMBSTONE_KEY, raw, Date.now());
+    applyTodoTombstones();
+  }
+
   function mergeCloudNewer(key, cloudRaw, localRaw) {
-    if (localRaw == null) return cloudRaw;
-    if (key === 'bloom_todos_v2') {
+    if (key === TOMBSTONE_KEY) return mergeTombstones(cloudRaw, localRaw);
+    if (key === TODO_KEY) {
       try {
-        var cloud = JSON.parse(cloudRaw), local = JSON.parse(localRaw);
+        var cloud = JSON.parse(cloudRaw || '[]'), local = JSON.parse(localRaw || '[]');
         if (!Array.isArray(cloud) || !Array.isArray(local)) return cloudRaw;
         var ids = {}, out = cloud.slice();
         for (var i = 0; i < cloud.length; i++) ids[String(cloud[i].id)] = true;
         for (var j = 0; j < local.length; j++) if (!ids[String(local[j].id)]) out.push(local[j]);
-        return JSON.stringify(out);
+        return filterTodosRaw(JSON.stringify(out), localStorage.getItem(TOMBSTONE_KEY));
       } catch (e) { return cloudRaw; }
     }
+    if (localRaw == null) return cloudRaw;
     // Structured learning histories keep local-only fields while accepting
     // the newer cloud value on the same field.
     try {
@@ -171,6 +232,8 @@ const Sync = (function () {
         }
         // else: local is newer or equal -> keep local
       }
+      return applyTodoTombstones() ? flush() : null;
+    }).then(function () {
       setStatus('idle');
     }).catch(function (err) { setStatus('offline'); throw err; });
   }
@@ -225,6 +288,7 @@ const Sync = (function () {
 
   function markDirty(key) {
     if (!isEnabled() || !isSyncableKey(key)) return;
+    if (key === TODO_KEY || key === TOMBSTONE_KEY) applyTodoTombstones();
     var value = localStorage.getItem(key);
     if (value !== null) schedulePush(key, value);
   }
@@ -254,8 +318,11 @@ const Sync = (function () {
           writeLocal(orig, rows[i].value, cloudTs);
         } else if (localValue !== rows[i].value) {
           rememberConflict(orig, localValue, rows[i].value, 0, cloudTs);
-          var merged = (typeof window !== 'undefined' && window.BackupRestore)
-            ? window.BackupRestore.mergeRaw(orig, rows[i].value, localValue) : localValue;
+          var merged = orig === TOMBSTONE_KEY
+            ? mergeTombstones(rows[i].value, localValue)
+            : ((typeof window !== 'undefined' && window.BackupRestore)
+              ? window.BackupRestore.mergeRaw(orig, rows[i].value, localValue) : localValue);
+          if (orig === TODO_KEY) merged = filterTodosRaw(merged, localStorage.getItem(TOMBSTONE_KEY));
           writeLocal(orig, merged, Date.now());
           queueValue(orig, merged, Date.now());
         }
@@ -267,6 +334,7 @@ const Sync = (function () {
         var localKey = localStorage.key(k);
         if (isSyncableKey(localKey) && !cloudKeys[localKey]) queueValue(localKey, localStorage.getItem(localKey), Date.now());
       }
+      applyTodoTombstones();
       return flush();
     }).then(function () {
       setStatus('idle');
@@ -317,8 +385,14 @@ const Sync = (function () {
     genCode: genCode,
     setSuppress: setSuppress,
     markDirty: markDirty,
+    markTodosDeleted: markTodosDeleted,
+    applyTodoTombstones: applyTodoTombstones,
     isSyncableKey: isSyncableKey,
-    isEnabled: isEnabled
+    isEnabled: isEnabled,
+    _test: {
+      mergeTombstones: mergeTombstones,
+      filterTodosRaw: filterTodosRaw
+    }
   };
 })();
 // 关键修复：顶层 const Sync 不会挂到 window 上，导致 app.js 里所有 `if (window.Sync)` 守卫都为 false、

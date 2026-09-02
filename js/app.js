@@ -160,6 +160,7 @@ const App = (function () {
     // Refresh date card when language changes
     I18n.onChange(function () { renderDate(); markZhTitles(); });
     initSyncUI();
+    if (window.BloomNotifications) BloomNotifications.init();
   }
 
   function init() {
@@ -186,6 +187,11 @@ const App = (function () {
     var backupPreviewClose = document.getElementById('backup-preview-close');
     var restoreMergeBtn = document.getElementById('backup-restore-merge');
     var restoreOverwriteBtn = document.getElementById('backup-restore-overwrite');
+    var demoScanBtn = document.getElementById('demo-cleanup-scan');
+    var demoConfirmBtn = document.getElementById('demo-cleanup-confirm');
+    var demoPreviewEl = document.getElementById('demo-cleanup-preview');
+    var demoCountEl = document.getElementById('demo-cleanup-count');
+    var demoListEl = document.getElementById('demo-cleanup-list');
     var urlIn = document.getElementById('sync-url');
     var keyIn = document.getElementById('sync-key');
     var codeIn = document.getElementById('sync-code');
@@ -300,6 +306,57 @@ const App = (function () {
     }
     if (restoreMergeBtn) restoreMergeBtn.addEventListener('click', function () { runRestore('merge'); });
     if (restoreOverwriteBtn) restoreOverwriteBtn.addEventListener('click', function () { runRestore('overwrite'); });
+    var pendingDemoCleanup = null;
+    function scanDemoData() {
+      pendingDemoCleanup = (window.TodoList && TodoList.demoCleanupPreview)
+        ? TodoList.demoCleanupPreview() : { rootCount: 0, copyCount: 0, totalCount: 0, samples: [] };
+      if (demoPreviewEl) demoPreviewEl.hidden = false;
+      if (demoCountEl) {
+        demoCountEl.textContent = pendingDemoCleanup.totalCount
+          ? ('检测到 ' + pendingDemoCleanup.rootCount + ' 条样例原任务 + ' + pendingDemoCleanup.copyCount + ' 条延续副本')
+          : '没有检测到符合旧生成器特征的样例任务';
+      }
+      if (demoListEl) {
+        demoListEl.innerHTML = '';
+        pendingDemoCleanup.samples.slice(0, 12).forEach(function (sample) {
+          var line = document.createElement('span');
+          line.textContent = sample.date + ' · ' + sample.text;
+          demoListEl.appendChild(line);
+        });
+        if (pendingDemoCleanup.samples.length > 12) {
+          var more = document.createElement('span');
+          more.textContent = '…另有 ' + (pendingDemoCleanup.samples.length - 12) + ' 条样例原任务';
+          demoListEl.appendChild(more);
+        }
+      }
+      if (demoConfirmBtn) demoConfirmBtn.disabled = !pendingDemoCleanup.totalCount;
+    }
+    if (demoScanBtn) demoScanBtn.addEventListener('click', scanDemoData);
+    if (demoConfirmBtn) demoConfirmBtn.addEventListener('click', function () {
+      if (!pendingDemoCleanup) scanDemoData();
+      if (!pendingDemoCleanup || !pendingDemoCleanup.totalCount) return;
+      var ok = window.confirm('将删除 ' + pendingDemoCleanup.totalCount + ' 条已识别的 v1.32 样例任务及延续副本，并同步删除标记。你的其他任务不会被改动。是否继续？');
+      if (!ok) return;
+      demoConfirmBtn.disabled = true;
+      try {
+        BackupRestore.download(BackupRestore.buildPayload(), 'bloom-before-demo-cleanup-' + backupStamp() + '.json');
+      } catch (e) {
+        demoConfirmBtn.disabled = false;
+        toast('删除前安全备份下载失败，已取消清理', 'warn');
+        return;
+      }
+      var removed = TodoList.cleanupDemoData();
+      var finish = function () {
+        toast('已删除 ' + removed.totalCount + ' 条样例记录，并写入防恢复删除标记', 'success');
+        scanDemoData();
+      };
+      if (window.Sync && Sync.isEnabled && Sync.isEnabled()) {
+        Sync.manualSync().then(finish).catch(function () {
+          toast('样例已从本机删除；云端同步失败，删除标记会自动重试', 'warn');
+          scanDemoData();
+        });
+      } else finish();
+    });
     if (saveBtn) saveBtn.addEventListener('click', function () {
       var c = {
         url: (urlIn ? urlIn.value : '').trim(),

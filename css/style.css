@@ -2953,6 +2953,17 @@ body {
 
 .vocablib-word:hover { color: var(--rose-700); }
 
+.vocab-word-button {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
 .vocablib-phonetic {
   font-family: var(--bloom-mono);
   font-size: 12px;
@@ -2965,6 +2976,41 @@ body {
   color: var(--text-secondary);
   line-height: 1.5;
   margin-bottom: 6px;
+}
+
+.vocablib-detail {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 8px;
+  margin: 8px 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+.vocablib-detail strong {
+  color: var(--gold-500);
+  font-size: 10px;
+  letter-spacing: .05em;
+  padding-top: 2px;
+}
+.vocablib-example {
+  margin: 10px 0;
+  padding: 9px 11px;
+  border-left: 2px solid var(--sage-300);
+  background: rgba(124, 154, 130, .06);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.55;
+  font-style: italic;
+}
+.vocablib-more { margin: 9px 0; font-size: 12px; color: var(--text-muted); }
+.vocablib-more summary { cursor: pointer; color: var(--sage-500); }
+.vocablib-more p { margin: 6px 0 0; line-height: 1.55; }
+.vocablib-note {
+  margin: 8px 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
 }
 
 .vocablib-source {
@@ -2999,6 +3045,18 @@ body {
   color: var(--sage-500);
   transition: var(--transition-fast);
 }
+
+.vocablib-edit-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+}
+.vocablib-edit-btn:hover { background: var(--cream-200); }
 
 .vocablib-master-btn:hover {
   background: rgba(124, 154, 130, 0.10);
@@ -3611,6 +3669,82 @@ body {
   padding: 22px 26px;
   overflow-y: auto;
   flex: 1;
+}
+
+.modal-vocab { width: min(760px, calc(100vw - 28px)); max-height: min(90vh, 860px); }
+.vocab-edit-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(150px, 1fr);
+  gap: 0 14px;
+}
+.vocab-edit-wide { grid-column: 1 / -1; }
+.vocab-edit-textarea {
+  min-height: 64px;
+  resize: vertical;
+  line-height: 1.5;
+}
+.vocab-enrich-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 2px;
+}
+.vocab-enrich-line .modal-micro { margin: 0; line-height: 1.45; }
+
+.push-settings-row {
+  padding: 14px;
+  border: 1px solid var(--sage-200);
+  border-radius: 10px;
+  background: rgba(124, 154, 130, .06);
+}
+.push-settings-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 12px;
+}
+.push-status { font-size: 12px; color: var(--text-muted); }
+
+.demo-cleanup-row {
+  padding: 14px;
+  border: 1px solid var(--rose-200);
+  border-radius: 10px;
+  background: rgba(193, 112, 91, .045);
+}
+.demo-cleanup-actions { margin-top: 12px; }
+.demo-cleanup-preview {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+}
+.demo-cleanup-preview[hidden] { display: none; }
+.demo-cleanup-list {
+  max-height: 150px;
+  overflow: auto;
+  margin: 9px 0 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.demo-cleanup-list span { display: block; }
+.modal-btn-danger {
+  background: rgba(193, 112, 91, .1);
+  border-color: var(--rose-300);
+  color: var(--rose-700);
+}
+.modal-btn-danger:hover { background: var(--rose-500); color: #fff; }
+
+@media (max-width: 620px) {
+  .modal-vocab { width: calc(100vw - 16px); max-height: calc(100dvh - 20px); }
+  .modal-vocab .modal-body { padding: 16px; }
+  .vocab-edit-grid { grid-template-columns: 1fr; }
+  .vocab-edit-wide { grid-column: auto; }
+  .vocab-edit-grid .modal-row { margin-bottom: 12px; }
+  .vocab-enrich-line { align-items: flex-start; flex-direction: column; }
+  .modal-vocab .modal-footer { padding: 12px 16px; }
 }
 .modal-hint {
   font-size: 12.5px;

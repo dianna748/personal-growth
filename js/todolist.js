@@ -34,6 +34,23 @@ const TodoList = (function () {
 
   const STORAGE_KEY = 'bloom_todos_v2';
   const SEED_FLAG_KEY = 'bloom_todos_seeded_v1';
+  const DEMO_CLEANUP_KEY = 'bloom_demo_cleanup_v1';
+  const DEMO_TEXTS = new Set([
+    'Morning jog 30 min', 'Grocery shopping', 'Cook dinner — pasta', 'Call parents',
+    'Water plants', 'Yoga session', 'Read for 20 min', 'Tidy the desk', 'Laundry',
+    'Sleep before 23:00', 'Meditation 10 min', 'Bake bread', 'Walk in the park',
+    'Plan weekend trip', 'Journaling', 'Review quarterly report', 'Standup meeting',
+    'Reply to client emails', 'Update project roadmap', 'Draft proposal deck', 'Code review',
+    '1:1 with manager', 'Invoice processing — Jiangcai delivery data', 'Vendor follow-up calls',
+    'Sprint retrospective', 'Prepare slides for Friday', 'Cross-team sync', 'Polish README',
+    'Deploy hotfix', 'English — 30 vocab review', 'Read Economist article',
+    'French — Le Monde reading', 'Practice shadowing 15 min', 'Watch TED talk',
+    'Duolingo streak', 'Anki deck review', 'Write 5 sentences in French',
+    'Listen to podcast episode', 'Grammar drill — past subjunctive', 'Draft blog post outline',
+    'Edit video for YouTube', 'Reply to comments', "Schedule next week's posts",
+    'Research trending topic', 'Record voiceover', 'Design thumbnail', 'Update content calendar',
+    'Write newsletter', 'Repurpose article into tweet thread'
+  ]);
 
   /* ---- Date Helpers ---- */
   function todayStr() {
@@ -599,6 +616,10 @@ const TodoList = (function () {
       }
     }
 
+    // Record the deletion before the exit animation finishes. The synced
+    // tombstone prevents older cloud/device copies from restoring this task.
+    if (window.Sync && Sync.markTodosDeleted) Sync.markTodosDeleted(idsToRemove);
+
     var firstEl = document.querySelector('[data-todo-id="' + id + '"]');
     if (firstEl) {
       firstEl.classList.add('leaving');
@@ -820,6 +841,62 @@ const TodoList = (function () {
     var inp = document.getElementById('todo-input');
     if (!inp) return;
     inp.placeholder = addPlaceholderForView();
+  }
+
+  /* v1.35: identify only the generator signature used by the old demo.
+     A matching title alone is never enough: generated records also have a
+     date-aligned UTC timestamp with seconds/milliseconds fixed to zero. */
+  function isLegacyDemoRoot(todo) {
+    if (!todo || todo.rolledOver || todo.parentRollover != null) return false;
+    if (!DEMO_TEXTS.has(todo.text)) return false;
+    if (!todo.date || todo.addedDate !== todo.date || typeof todo.createdAt !== 'string') return false;
+    var escapedDate = todo.date.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+    var stamp = new RegExp('^' + escapedDate + 'T(?:0[9]|1[0-8]):[0-5][0-9]:00\\.000Z$');
+    return stamp.test(todo.createdAt);
+  }
+
+  function demoCleanupPreview(list) {
+    list = Array.isArray(list) ? list : todos;
+    var roots = {}, ids = {}, samples = [];
+    list.forEach(function (todo) {
+      if (!isLegacyDemoRoot(todo)) return;
+      roots[String(todo.id)] = true;
+      ids[String(todo.id)] = true;
+      samples.push({ id: todo.id, text: todo.text, date: todo.date, category: todo.category });
+    });
+    list.forEach(function (todo) {
+      var chain = todo.taskChainId != null ? todo.taskChainId : todo.parentRollover;
+      if (chain != null && roots[String(chain)]) ids[String(todo.id)] = true;
+      if (todo.rolloverFromId != null && ids[String(todo.rolloverFromId)]) ids[String(todo.id)] = true;
+    });
+    var allIds = Object.keys(ids);
+    return {
+      rootCount: Object.keys(roots).length,
+      copyCount: Math.max(0, allIds.length - Object.keys(roots).length),
+      totalCount: allIds.length,
+      ids: allIds,
+      samples: samples.sort(function (a, b) { return a.date.localeCompare(b.date); })
+    };
+  }
+
+  function cleanupDemoData() {
+    var preview = demoCleanupPreview(todos);
+    if (!preview.totalCount) return preview;
+    if (window.Sync && Sync.markTodosDeleted) Sync.markTodosDeleted(preview.ids);
+    var removing = {};
+    preview.ids.forEach(function (id) { removing[String(id)] = true; });
+    todos = todos.filter(function (todo) { return !removing[String(todo.id)]; });
+    save();
+    try {
+      localStorage.setItem(SEED_FLAG_KEY, '1');
+      localStorage.setItem(DEMO_CLEANUP_KEY, JSON.stringify({
+        cleanedAt: new Date().toISOString(),
+        roots: preview.rootCount,
+        copies: preview.copyCount
+      }));
+    } catch (e) {}
+    renderCurrentView();
+    return preview;
   }
 
   function addPlaceholderForView() {
@@ -1982,8 +2059,8 @@ const TodoList = (function () {
   /* ---- Initialization ---- */
   function init() {
     load();
-    // First-run seeding (only when user has no data)
-    seedDemoData();
+    // Personal workspaces now start empty. The legacy demo generator is kept
+    // only so its exact signature remains auditable by the cleanup tool.
     // Carry over unfinished tasks from previous days onto today
     rolloverOverdue();
 
@@ -2348,5 +2425,10 @@ const TodoList = (function () {
     startChangePriority, commitPriorityChange, reorderTask, moveTaskByKeyboard,
     addSubtask, toggleSubtask, removeSubtask, startAddSubtask, commitSubtask, startEditSubtask,
     buildTaskChains, rolloverOverdue,
-    render: renderCurrentView };
+    demoCleanupPreview, cleanupDemoData,
+    render: renderCurrentView,
+    _test: { isLegacyDemoRoot, demoCleanupPreview } };
 })();
+
+if (typeof window !== 'undefined') window.TodoList = TodoList;
+if (typeof module !== 'undefined' && module.exports) module.exports = TodoList;

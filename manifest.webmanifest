@@ -1,6 +1,7 @@
 {
   "name": "Bloom · Personal Growth & Learning",
   "short_name": "Bloom",
+  "id": "./",
   "description": "Daily tasks, English & French learning, and reading — your personal growth companion.",
   "lang": "en",
   "start_url": ".",
