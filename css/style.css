@@ -4239,6 +4239,7 @@ body {
 
 .sync-code-row { display: flex; gap: 8px; align-items: center; }
 .sync-code-row .modal-input { flex: 1; }
+.sync-code-row .modal-btn { flex: 0 0 auto; white-space: nowrap; }
 
 .sync-switch { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; color: #20352f; }
 .sync-switch input { position: absolute; opacity: 0; width: 0; height: 0; }

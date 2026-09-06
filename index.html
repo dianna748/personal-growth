@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Bloom · Personal Growth & Learning</title>
-  <link rel="stylesheet" href="css/style.css?v=1.35">
-  <link rel="stylesheet" href="css/bloom-botanical.css?v=1.35">
-  <link rel="stylesheet" href="css/animations.css?v=1.35">
+  <link rel="stylesheet" href="css/style.css?v=1.36">
+  <link rel="stylesheet" href="css/bloom-botanical.css?v=1.36">
+  <link rel="stylesheet" href="css/animations.css?v=1.36">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#25483d">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -855,7 +855,7 @@
         </button>
       </header>
       <div class="modal-body">
-        <p class="modal-hint">只有你主动选中并保存的词、短语或表达才会进入词库。免费数据源的自动结果可直接修改。</p>
+        <p class="modal-hint">只有你主动选中并保存的词、短语或表达才会进入词库。系统会根据文章例句自动选择义项并生成双语释义，结果可直接修改。</p>
         <div class="vocab-edit-grid">
           <div class="modal-row vocab-edit-term">
             <label class="modal-label" for="vocab-edit-word">Vocab</label>
@@ -866,7 +866,7 @@
             <input class="modal-input" id="vocab-edit-phonetic" maxlength="100">
           </div>
           <div class="modal-row vocab-edit-wide">
-            <label class="modal-label" for="vocab-edit-definition">英英释义</label>
+            <label class="modal-label" for="vocab-edit-definition">句中英英释义</label>
             <textarea class="modal-input vocab-edit-textarea" id="vocab-edit-definition" rows="2" maxlength="1600"></textarea>
           </div>
           <div class="modal-row vocab-edit-wide">
@@ -899,7 +899,7 @@
           </div>
         </div>
         <div class="vocab-enrich-line">
-          <button class="modal-btn modal-btn-ghost" id="vocab-enrich-btn" type="button">重新联网补全</button>
+          <button class="modal-btn modal-btn-ghost" id="vocab-enrich-btn" type="button">重新根据例句补全</button>
           <span class="modal-micro" id="vocab-enrich-status"></span>
         </div>
       </div>
@@ -913,18 +913,18 @@
   <!-- Toast notifications -->
   <div class="toast-container" id="toast-container"></div>
 
-  <script src="data/articles.js?v=1.35"></script>
-  <script src="data/content.js?v=1.35"></script>
-  <script src="js/i18n.js?v=1.35"></script>
-  <script src="js/fetcher.js?v=1.35"></script>
-  <script src="js/backup.js?v=1.35"></script>
-  <script src="js/todolist.js?v=1.35"></script>
-  <script src="js/english.js?v=1.35"></script>
-  <script src="js/french.js?v=1.35"></script>
-  <script src="js/sync.js?v=1.35"></script>
-  <script src="js/font-language.js?v=1.35"></script>
-  <script src="js/notifications.js?v=1.35"></script>
-  <script src="js/app.js?v=1.35"></script>
+  <script src="data/articles.js?v=1.36"></script>
+  <script src="data/content.js?v=1.36"></script>
+  <script src="js/i18n.js?v=1.36"></script>
+  <script src="js/fetcher.js?v=1.36"></script>
+  <script src="js/backup.js?v=1.36"></script>
+  <script src="js/todolist.js?v=1.36"></script>
+  <script src="js/english.js?v=1.36"></script>
+  <script src="js/french.js?v=1.36"></script>
+  <script src="js/sync.js?v=1.36"></script>
+  <script src="js/font-language.js?v=1.36"></script>
+  <script src="js/notifications.js?v=1.36"></script>
+  <script src="js/app.js?v=1.36"></script>
     <!-- ============ Archive Page (v1.9: full-page sub-view, not a modal) ============ -->
     <div class="archive-page" id="archive-page" hidden>
       <div class="archive-page-inner">
@@ -1050,6 +1050,7 @@
             <label class="modal-label">同步码</label>
             <div class="sync-code-row">
               <input class="modal-input" type="password" id="sync-code" placeholder="8–32 位字母数字" autocomplete="new-password" spellcheck="false">
+              <button class="modal-btn modal-btn-ghost" id="sync-code-toggle" type="button" aria-controls="sync-code" aria-pressed="false">显示</button>
               <button class="modal-btn modal-btn-ghost" id="sync-gen" type="button">随机</button>
             </div>
             <span class="modal-micro">同步码相当于密码，不要泄露；新建建议使用随机生成的 16 位同步码，多设备填写同一个才能共享数据</span>

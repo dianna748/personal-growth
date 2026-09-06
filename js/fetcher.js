@@ -311,27 +311,102 @@ const Fetcher = (function () {
     return vocab;
   }
 
-  async function fetchWordDefinition(word) {
-    var data = await fetchJSON('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word), 5000);
-    if (!data || !Array.isArray(data) || !data[0]) return null;
-    var entry = data[0];
-    var meaning = entry.meanings && entry.meanings[0];
-    if (!meaning || !meaning.definitions || !meaning.definitions[0]) return null;
-    var def = meaning.definitions[0];
-    var phonetic = entry.phonetic || '';
-    if (!phonetic && entry.phonetics) {
-      for (var i = 0; i < entry.phonetics.length; i++) {
-        if (entry.phonetics[i].text) { phonetic = entry.phonetics[i].text; break; }
+  function collectDictionarySenses(data) {
+    if (!data || !Array.isArray(data)) return { phonetic: '', senses: [] };
+    var phonetic = '';
+    var senses = [];
+    data.forEach(function (entry) {
+      if (!phonetic) phonetic = entry.phonetic || '';
+      if (!phonetic && entry.phonetics) {
+        for (var p = 0; p < entry.phonetics.length; p++) {
+          if (entry.phonetics[p].text) { phonetic = entry.phonetics[p].text; break; }
+        }
       }
-    }
+      (entry.meanings || []).forEach(function (meaning, meaningIndex) {
+        (meaning.definitions || []).forEach(function (def, definitionIndex) {
+          if (!def || !def.definition) return;
+          senses.push({
+            partOfSpeech: (meaning.partOfSpeech || '').toLowerCase(),
+            definition: def.definition.trim(),
+            example: (def.example || '').trim(),
+            synonyms: (def.synonyms || []).concat(meaning.synonyms || []),
+            order: meaningIndex * 20 + definitionIndex
+          });
+        });
+      });
+    });
+    return { phonetic: phonetic, senses: senses };
+  }
+
+  async function fetchDictionarySenses(word) {
+    var data = await fetchJSON('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word), 6500);
+    return collectDictionarySenses(data);
+  }
+
+  async function fetchWordDefinition(word) {
+    var result = await fetchDictionarySenses(word);
+    if (!result.senses.length) return null;
     return {
       word: word,
-      phonetic: phonetic || '/' + word + '/',
-      meaning: def.definition
+      phonetic: result.phonetic || '/' + word + '/',
+      meaning: result.senses[0].definition
     };
   }
 
-  /* ---- Manual vocab enrichment (free, no API key) ---- */
+  /* ---- Vocab enrichment: private DeepSeek function first, free sources as fallback ---- */
+  function getAIConfig() {
+    if (typeof window === 'undefined' || !window.Sync || !window.Sync.getConfig) return null;
+    var config = window.Sync.getConfig();
+    if (!config || !config.enabled || !config.url || !config.anonKey || !config.syncCode) return null;
+    return config;
+  }
+
+  function cleanAIField(value, maxLength) {
+    if (typeof value !== 'string') return '';
+    value = value.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+    return value.length > maxLength ? value.slice(0, maxLength - 1) + '…' : value;
+  }
+
+  async function enrichVocabWithAI(term, sentence, context) {
+    var config = getAIConfig();
+    if (!config) return null;
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, 24000);
+    try {
+      var response = await fetch(config.url.replace(/\/$/, '') + '/functions/v1/enrich-vocab', {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': config.anonKey,
+          'Authorization': 'Bearer ' + config.anonKey,
+          'x-bloom-sync-code': config.syncCode
+        },
+        body: JSON.stringify({
+          term: term,
+          sentence: sentence,
+          articleTitle: context && context.articleTitle ? context.articleTitle : '',
+          source: context && context.source ? context.source : ''
+        })
+      });
+      clearTimeout(timer);
+      if (!response.ok) return null;
+      var data = await response.json();
+      if (!data || data.provider !== 'deepseek') return null;
+      return {
+        phonetic: cleanAIField(data.phonetic, 120),
+        englishDefinition: cleanAIField(data.englishDefinition, 900),
+        contextualChinese: cleanAIField(data.contextualChinese, 900),
+        morphology: cleanAIField(data.morphology, 1800),
+        selectedPartOfSpeech: cleanAIField(data.selectedPartOfSpeech, 80),
+        providerNote: '已由 DeepSeek 根据文章例句生成，可修改后保存。'
+      };
+    } catch (e) {
+      clearTimeout(timer);
+      return null;
+    }
+  }
+
   function cleanWikiMarkup(text) {
     return (text || '')
       .replace(/<!--[^]*?-->/g, ' ')
@@ -358,27 +433,114 @@ const Fetcher = (function () {
     return cleaned.length > 700 ? cleaned.slice(0, 697) + '…' : cleaned;
   }
 
-  async function enrichVocab(term, sentence) {
+  var CONTEXT_STOP_WORDS = new Set([
+    'a','an','the','and','or','but','if','then','than','that','this','these','those','to','of','in','on','at','by','for','from','with','as','is','am','are','was','were','be','been','being','it','its','he','she','they','we','you','i','my','our','your','their','his','her','not','no','do','does','did','have','has','had','will','would','can','could','may','might','must','should','shall'
+  ]);
+
+  function contextTokens(text) {
+    return (text || '').toLowerCase().match(/[a-z][a-z'-]{1,}/g) || [];
+  }
+
+  function inferContextPartOfSpeech(term, sentence) {
+    var termWords = contextTokens(term);
+    var words = contextTokens(sentence);
+    if (termWords.length !== 1 || !words.length) return '';
+    var target = termWords[0];
+    var index = words.indexOf(target);
+    if (index < 0) return '';
+    var prev = words[index - 1] || '';
+    var prev2 = words[index - 2] || '';
+    var next = words[index + 1] || '';
+    var verbMarkers = ['to','will','would','can','could','may','might','must','should','shall','did','does','do','not'];
+    if (verbMarkers.indexOf(prev) >= 0 || (prev === 'to' && prev2 !== 'the')) return 'verb';
+    if (/ing$|ed$/.test(target) && prev !== 'the') return 'verb';
+    if (['a','an','the','this','that','these','those','my','your','our','their','his','her'].indexOf(prev) >= 0) return 'noun';
+    if (['very','more','most','quite','rather','too','so'].indexOf(prev) >= 0) return 'adjective';
+    if (next === 'of' && prev !== 'to') return 'noun';
+    return '';
+  }
+
+  function chooseContextualSense(term, sentence, senses) {
+    if (!senses || !senses.length) return null;
+    var inferredPos = inferContextPartOfSpeech(term, sentence);
+    var sentenceTokens = contextTokens(sentence).filter(function (token) {
+      return !CONTEXT_STOP_WORDS.has(token) && token !== term.toLowerCase();
+    });
+    var abstractClues = new Set(['change','changes','changing','develop','development','future','process','event','events','story','crisis','plan','scenario','trend','trends','years','decades','projected','trajectory','trajectories','transition','demographic','market','economy','policy','technology','history','situation','gradually']);
+    var literalClues = new Set(['map','paper','cloth','tablecloth','dress','fabric','clothes','arms','wings','letter','sheet']);
+    var hasAbstractClue = sentenceTokens.some(function (token) { return abstractClues.has(token); });
+    var hasLiteralClue = sentenceTokens.some(function (token) { return literalClues.has(token); });
+
+    return senses.map(function (sense, index) {
+      var score = 0;
+      if (inferredPos && sense.partOfSpeech === inferredPos) score += 12;
+      else if (inferredPos && sense.partOfSpeech && sense.partOfSpeech !== inferredPos) score -= 8;
+      var senseText = [sense.definition, sense.example, (sense.synonyms || []).join(' ')].join(' ').toLowerCase();
+      var senseTokens = new Set(contextTokens(senseText));
+      sentenceTokens.forEach(function (token) { if (senseTokens.has(token)) score += 3; });
+      if (hasAbstractClue && /happen|develop|progress|become|reveal|emerge|occur|gradual|successive/.test(senseText)) score += 9;
+      if (hasLiteralClue && /fold|open|spread|cover|cloth|paper|map/.test(senseText)) score += 9;
+      score -= (sense.order == null ? index : sense.order) * 0.015;
+      return { sense: sense, score: score };
+    }).sort(function (a, b) { return b.score - a.score; })[0].sense;
+  }
+
+  async function fetchWiktionarySenses(term) {
+    var url = 'https://en.wiktionary.org/w/api.php?action=parse&format=json&prop=wikitext' +
+      '&page=' + encodeURIComponent(term) + '&origin=*';
+    var data = await fetchJSON(url, 8000);
+    var raw = data && data.parse && data.parse.wikitext && data.parse.wikitext['*'];
+    if (!raw) return [];
+    var english = raw.match(/==English==([^]*?)(?=\n==[^=]+==|$)/i);
+    if (!english) return [];
+    var section = english[1];
+    var headerRe = /^={3,4}\s*(Noun|Verb|Adjective|Adverb|Phrase|Proverb|Interjection|Preposition|Conjunction)(?:\s+\d+)?\s*={3,4}\s*$/gim;
+    var headers = [];
+    var match;
+    while ((match = headerRe.exec(section))) headers.push({ pos: match[1].toLowerCase(), start: match.index, bodyStart: headerRe.lastIndex });
+    var senses = [];
+    headers.forEach(function (header, idx) {
+      var body = section.slice(header.bodyStart, idx + 1 < headers.length ? headers[idx + 1].start : section.length);
+      body.split('\n').forEach(function (line, lineIndex) {
+        if (!/^#\s+[^#:*]/.test(line)) return;
+        var definition = cleanWikiMarkup(line.replace(/^#\s+/, ''))
+          .replace(/\{\{[^{}]*\}\}/g, ' ')
+          .replace(/\s+/g, ' ').trim();
+        if (definition.length < 4) return;
+        senses.push({ partOfSpeech: header.pos === 'phrase' ? '' : header.pos, definition: definition, example: '', synonyms: [], order: lineIndex });
+      });
+    });
+    return senses.slice(0, 24);
+  }
+
+  async function enrichVocab(term, sentence, context) {
     term = (term || '').trim();
     sentence = (sentence || '').trim();
     if (!term) return null;
+    var aiResult = await enrichVocabWithAI(term, sentence, context);
+    if (aiResult) return aiResult;
     var isSingleWord = term.split(/\s+/).length === 1;
-    var jobs = [
-      isSingleWord ? fetchWordDefinition(term) : Promise.resolve(null),
-      translateText(term, 'en', 'zh'),
-      sentence ? translateText(sentence, 'en', 'zh') : Promise.resolve(null),
+    var senseResult = isSingleWord ? await fetchDictionarySenses(term) : { phonetic: '', senses: [] };
+    if (!senseResult.senses.length) senseResult.senses = await fetchWiktionarySenses(term);
+    var chosen = chooseContextualSense(term, sentence, senseResult.senses);
+    var englishDefinition = chosen ? chosen.definition : '';
+    var translations = await Promise.all([
+      englishDefinition ? translateText(englishDefinition, 'en', 'zh-CN') : Promise.resolve(null),
+      translateText(term, 'en', 'zh-CN'),
       isSingleWord ? fetchEtymology(term) : Promise.resolve('')
-    ];
-    var results = await Promise.all(jobs);
-    var definition = results[0];
-    var contextual = results[1] || '';
-    if (results[2]) contextual += (contextual ? '\n' : '') + '整句参考：' + results[2];
+    ]);
+    var contextual = translations[0] || translations[1] || '';
+    if (contextual) contextual = '此处意为：' + contextual.replace(/[.。]\s*$/, '');
+    var inferredPos = inferContextPartOfSpeech(term, sentence);
     return {
-      phonetic: definition ? definition.phonetic : '',
-      englishDefinition: definition ? definition.meaning : '',
+      phonetic: senseResult.phonetic || '',
+      englishDefinition: englishDefinition,
       contextualChinese: contextual,
-      morphology: results[3] || '',
-      providerNote: '免费词典、MyMemory 与 Wiktionary 自动补全；请结合原文校对。'
+      morphology: translations[2] || '',
+      selectedPartOfSpeech: chosen ? chosen.partOfSpeech : inferredPos,
+      providerNote: englishDefinition && contextual
+        ? 'DeepSeek 暂不可用，已改用免费词典并根据例句选择最接近的' + ((chosen && chosen.partOfSpeech) ? chosen.partOfSpeech + ' ' : '') + '义项。'
+        : 'DeepSeek 暂不可用，已返回可用的免费词典结果；未补全字段可手动填写或重试。'
     };
   }
 
@@ -731,8 +893,18 @@ const Fetcher = (function () {
     fetchFrenchReading: fetchFrenchReading,
     translateText: translateText,
     fetchWordDefinition: fetchWordDefinition,
+    enrichVocabWithAI: enrichVocabWithAI,
     enrichVocab: enrichVocab,
     fmtDate: fmtDate,
-    dateStr: dateStr
+    dateStr: dateStr,
+    _test: {
+      collectDictionarySenses: collectDictionarySenses,
+      inferContextPartOfSpeech: inferContextPartOfSpeech,
+      chooseContextualSense: chooseContextualSense
+    }
   };
 })();
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = Fetcher;
+}

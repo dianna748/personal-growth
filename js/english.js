@@ -23,6 +23,7 @@ const English = (function () {
   let pendingSelection = null;
   let editorState = null;
   let selectionEventsBound = false;
+  let enrichRequestId = 0;
 
   const STORAGE_KEY = 'bloom_eng_history';
   const VOCAB_KEY = 'bloom_eng_vocab_lib';
@@ -279,11 +280,33 @@ const English = (function () {
 
   function selectedSentence(selection) {
     if (!selection || !selection.rangeCount) return '';
-    var node = selection.getRangeAt(0).commonAncestorContainer;
+    var range = selection.getRangeAt(0);
+    var node = range.commonAncestorContainer;
     if (node.nodeType === 3) node = node.parentElement;
     var paragraph = node && node.closest ? node.closest('p, li, blockquote') : null;
     var text = paragraph ? paragraph.textContent.trim() : '';
-    if (text.length > 700) text = text.slice(0, 697) + '…';
+    if (!text) return '';
+    var selected = selection.toString().trim();
+    var offset = text.toLowerCase().indexOf(selected.toLowerCase());
+    try {
+      var before = range.cloneRange();
+      before.selectNodeContents(paragraph);
+      before.setEnd(range.startContainer, range.startOffset);
+      offset = before.toString().trimStart().length;
+    } catch (e) { /* Fall back to the selected-text index. */ }
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+      var segments = Array.from(new Intl.Segmenter('en', { granularity: 'sentence' }).segment(text));
+      var matched = segments.find(function (part) {
+        return offset >= part.index && offset < part.index + part.segment.length;
+      });
+      if (matched && matched.segment.trim()) text = matched.segment.trim();
+    } else {
+      var left = Math.max(text.lastIndexOf('.', offset - 1), text.lastIndexOf('!', offset - 1), text.lastIndexOf('?', offset - 1));
+      var rightCandidates = [text.indexOf('.', offset), text.indexOf('!', offset), text.indexOf('?', offset)].filter(function (n) { return n >= 0; });
+      var right = rightCandidates.length ? Math.min.apply(Math, rightCandidates) + 1 : text.length;
+      text = text.slice(left + 1, right).trim();
+    }
+    if (text.length > 480) text = text.slice(0, 477) + '…';
     return text;
   }
 
@@ -350,6 +373,7 @@ const English = (function () {
     var overlay = document.getElementById('vocab-editor-overlay');
     if (overlay) overlay.hidden = true;
     editorState = null;
+    enrichRequestId += 1;
   }
 
   function openVocabEditor(input, existingWord) {
@@ -384,18 +408,27 @@ const English = (function () {
     var overlay = document.getElementById('vocab-editor-overlay');
     if (overlay) overlay.hidden = false;
     var statusEl = document.getElementById('vocab-enrich-status');
-    if (statusEl) statusEl.textContent = existing ? '可修改后保存。' : '正在用免费词典补全，可随时手动修改…';
+    if (statusEl) statusEl.textContent = existing ? '可修改后保存。' : '正在用 DeepSeek 根据文章例句分析…';
     if (!existing) enrichEditor();
   }
 
   async function enrichEditor() {
     var word = fieldValue('vocab-edit-word');
     if (!word || typeof Fetcher === 'undefined' || !Fetcher.enrichVocab) return;
+    var requestId = ++enrichRequestId;
     var btn = document.getElementById('vocab-enrich-btn');
     var statusEl = document.getElementById('vocab-enrich-status');
-    if (btn) btn.disabled = true;
-    if (statusEl) statusEl.textContent = '正在联网查询英英释义、中文含义和词源…';
-    var data = await Fetcher.enrichVocab(word, fieldValue('vocab-edit-example'));
+    if (btn) { btn.disabled = true; btn.textContent = '正在自动补全…'; }
+    if (statusEl) statusEl.textContent = '正在调用 DeepSeek 分析句中含义；不可用时会自动切换免费词典…';
+    var context = editorState && editorState.draft ? {
+      articleTitle: editorState.draft.articleTitle || '',
+      source: editorState.draft.source || ''
+    } : {};
+    var data = await Fetcher.enrichVocab(word, fieldValue('vocab-edit-example'), context);
+    if (requestId !== enrichRequestId || word !== fieldValue('vocab-edit-word')) {
+      if (btn) { btn.disabled = false; btn.textContent = '重新根据例句补全'; }
+      return;
+    }
     if (data) {
       if (!fieldValue('vocab-edit-phonetic')) setField('vocab-edit-phonetic', data.phonetic);
       if (!fieldValue('vocab-edit-definition')) setField('vocab-edit-definition', data.englishDefinition);
@@ -405,7 +438,7 @@ const English = (function () {
     } else if (statusEl) {
       statusEl.textContent = '暂时没有查到结果，你仍可手动填写并保存。';
     }
-    if (btn) btn.disabled = false;
+    if (btn) { btn.disabled = false; btn.textContent = '重新根据例句补全'; }
   }
 
   function saveVocabEditor() {

@@ -178,6 +178,7 @@ const App = (function () {
     var closeBtn = document.getElementById('sync-modal-close');
     var saveBtn = document.getElementById('sync-save');
     var genBtn = document.getElementById('sync-gen');
+    var codeToggleBtn = document.getElementById('sync-code-toggle');
     var nowBtn = document.getElementById('sync-now');
     var copyBtn = document.getElementById('sync-copy-sql');
     var exportBtn = document.getElementById('sync-export-backup');
@@ -214,7 +215,14 @@ const App = (function () {
       var c = (window.Sync && Sync.getConfig()) || {};
       if (urlIn) urlIn.value = c.url || '';
       if (keyIn) keyIn.value = c.anonKey || '';
-      if (codeIn) codeIn.value = c.syncCode || '';
+      if (codeIn) {
+        codeIn.value = c.syncCode || '';
+        codeIn.type = 'password';
+      }
+      if (codeToggleBtn) {
+        codeToggleBtn.textContent = '显示';
+        codeToggleBtn.setAttribute('aria-pressed', 'false');
+      }
       if (enIn) enIn.checked = !!c.enabled;
     }
 
@@ -224,6 +232,13 @@ const App = (function () {
     });
     if (closeBtn) closeBtn.addEventListener('click', function () { if (modal) modal.hidden = true; });
     if (modal) modal.addEventListener('click', function (e) { if (e.target === modal) modal.hidden = true; });
+    if (codeToggleBtn) codeToggleBtn.addEventListener('click', function () {
+      if (!codeIn) return;
+      var willShow = codeIn.type === 'password';
+      codeIn.type = willShow ? 'text' : 'password';
+      codeToggleBtn.textContent = willShow ? '隐藏' : '显示';
+      codeToggleBtn.setAttribute('aria-pressed', willShow ? 'true' : 'false');
+    });
     if (genBtn) genBtn.addEventListener('click', function () { if (codeIn && window.Sync) codeIn.value = Sync.genCode(); });
     if (copyBtn) copyBtn.addEventListener('click', function () {
       var sql = document.getElementById('sync-sql');
