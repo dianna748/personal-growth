@@ -10,6 +10,8 @@ const Sync = (function () {
   var CFG_KEY = 'bloom_sync_config';
   var TODO_KEY = 'bloom_todos_v2';
   var TOMBSTONE_KEY = 'bloom_todo_tombstones_v1';
+  var DEMO_CLEANUP_KEY = 'bloom_demo_cleanup_v1';
+  var DEMO_QUARANTINE_KEY = '__bloom_demo_quarantine_v1';
   var TABLE = 'kv_store';
   var FETCH_TIMEOUT = 6000;
   var PUSH_DEBOUNCE = 700;
@@ -89,13 +91,68 @@ const Sync = (function () {
     } catch (e) { return todoRaw; }
   }
 
+  function protectCleanedDemoRaw(todoRaw) {
+    var result = { raw: todoRaw, ids: [], records: [] };
+    try {
+      // Never remove anything automatically unless the user has already run
+      // and confirmed the dedicated v1.32 demo cleanup.
+      if (!localStorage.getItem(DEMO_CLEANUP_KEY)) return result;
+      if (typeof window === 'undefined' || !window.TodoList || !window.TodoList.demoCleanupPreview) return result;
+      var list = JSON.parse(todoRaw || '[]');
+      if (!Array.isArray(list)) return result;
+      var preview = window.TodoList.demoCleanupPreview(list);
+      if (!preview || !preview.totalCount) return result;
+      var removing = {};
+      preview.ids.forEach(function (id) { removing[String(id)] = true; });
+      result.ids = preview.ids.slice();
+      result.records = list.filter(function (todo) { return todo && removing[String(todo.id)]; });
+      result.raw = JSON.stringify(list.filter(function (todo) { return !todo || !removing[String(todo.id)]; }));
+    } catch (e) {}
+    return result;
+  }
+
+  function quarantineDemoRecords(records) {
+    if (!records || !records.length) return;
+    try {
+      var entries = JSON.parse(localStorage.getItem(DEMO_QUARANTINE_KEY) || '[]');
+      if (!Array.isArray(entries)) entries = [];
+      entries.unshift({ savedAt: new Date().toISOString(), reason: 'resurfaced-v1.32-demo', records: records });
+      if (entries.length > 3) entries.length = 3;
+      _origSetItem.call(localStorage, DEMO_QUARANTINE_KEY, JSON.stringify(entries));
+    } catch (e) {}
+  }
+
+  function recordTodoTombstones(ids) {
+    if (!ids || !ids.length) return false;
+    var tombstones = parseTombstones(localStorage.getItem(TOMBSTONE_KEY));
+    var deletedAt = new Date().toISOString();
+    var changed = false;
+    for (var i = 0; i < ids.length; i++) {
+      var id = String(ids[i]);
+      if (!tombstones[id]) {
+        tombstones[id] = deletedAt;
+        changed = true;
+      }
+    }
+    if (!changed) return false;
+    var raw = JSON.stringify(tombstones);
+    _origSetItem.call(localStorage, TOMBSTONE_KEY, raw);
+    if (isEnabled()) queueValue(TOMBSTONE_KEY, raw, Date.now());
+    return true;
+  }
+
   // Deletion is represented explicitly, rather than inferred from an item being
   // absent. This prevents an older cloud/device copy from resurrecting a task.
   function applyTodoTombstones() {
-    var current = localStorage.getItem(TODO_KEY);
-    if (current === null) return false;
-    var filtered = filterTodosRaw(current, localStorage.getItem(TOMBSTONE_KEY));
-    if (filtered === current) return false;
+    var storedCurrent = localStorage.getItem(TODO_KEY);
+    if (storedCurrent === null) return false;
+    var demoProtection = protectCleanedDemoRaw(storedCurrent);
+    if (demoProtection.ids.length) {
+      quarantineDemoRecords(demoProtection.records);
+      recordTodoTombstones(demoProtection.ids);
+    }
+    var filtered = filterTodosRaw(demoProtection.raw, localStorage.getItem(TOMBSTONE_KEY));
+    if (filtered === storedCurrent) return false;
     var stamp = Date.now();
     writeLocal(TODO_KEY, filtered, stamp);
     if (isEnabled()) queueValue(TODO_KEY, filtered, stamp);
@@ -391,7 +448,8 @@ const Sync = (function () {
     isEnabled: isEnabled,
     _test: {
       mergeTombstones: mergeTombstones,
-      filterTodosRaw: filterTodosRaw
+      filterTodosRaw: filterTodosRaw,
+      protectCleanedDemoRaw: protectCleanedDemoRaw
     }
   };
 })();
