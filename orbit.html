@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ORBIT · Personal Growth System</title>
+  <link rel="stylesheet" href="css/orbit-v2.css">
+</head>
+<body>
+  <canvas id="starfield" aria-hidden="true"></canvas>
+  <div class="nebula nebula-a" aria-hidden="true"></div>
+  <div class="nebula nebula-b" aria-hidden="true"></div>
+
+  <aside class="orbit-rail" id="orbit-rail">
+    <div class="brand-mark" aria-label="Orbit home">
+      <span class="brand-core"></span><span class="brand-ring"></span>
+      <span class="brand-word">ORBIT</span>
+    </div>
+    <nav class="rail-nav">
+      <button class="rail-item active" data-view="home"><span class="rail-dot home-dot"></span><span>Home</span></button>
+      <button class="rail-item" data-view="daily"><span class="rail-dot daily-dot"></span><span>Daily Orbit</span></button>
+      <button class="rail-item" data-view="english"><span class="rail-dot english-dot"></span><span>English</span></button>
+      <button class="rail-item" data-view="french"><span class="rail-dot french-dot"></span><span>French</span></button>
+    </nav>
+    <div class="rail-footer">
+      <div class="orbit-index">ORBIT <span id="orbit-day">000</span></div>
+      <a href="index.html" class="legacy-link">Open current app</a>
+    </div>
+  </aside>
+
+  <main class="space-shell">
+    <section class="view active" id="view-home">
+      <header class="topbar">
+        <div>
+          <div class="eyebrow">PERSONAL OBSERVATORY</div>
+          <h1>Dianna's Universe</h1>
+        </div>
+        <div class="today-meta"><span id="today-date">SEPTEMBER 07</span><span id="today-weekday">MONDAY</span></div>
+      </header>
+
+      <div class="universe-stage" id="universe-stage">
+        <div class="orbit-line orbit-line-1"></div>
+        <div class="orbit-line orbit-line-2"></div>
+        <div class="orbit-line orbit-line-3"></div>
+        <button class="planet core-planet" data-view="daily">
+          <span class="planet-glow"></span>
+          <span class="planet-name">TODAY</span>
+          <span class="planet-value">07 / 11</span>
+          <span class="planet-sub">tasks complete</span>
+        </button>
+        <button class="planet planet-english" data-view="english">
+          <span class="planet-glow"></span>
+          <span class="planet-name">ENGLISH</span>
+          <span class="planet-value">5 sessions</span>
+          <span class="planet-sub">this week</span>
+        </button>
+        <button class="planet planet-french" data-view="french">
+          <span class="planet-glow"></span>
+          <span class="planet-name">FRANÇAIS</span>
+          <span class="planet-value">A1 · 04</span>
+          <span class="planet-sub">current orbit</span>
+        </button>
+        <div class="planet planet-future" aria-hidden="true"><span class="planet-name">NEXT</span></div>
+      </div>
+
+      <div class="home-footer">
+        <div><span class="tiny-label">CURRENT TRAJECTORY</span><strong>Build a little gravity every day.</strong></div>
+        <div class="signal-line"><span></span><span></span><span></span><span></span><span></span></div>
+      </div>
+    </section>
+
+    <section class="view" id="view-daily">
+      <header class="module-head">
+        <div><div class="eyebrow warm">DAILY ORBIT</div><h2>Today's trajectory</h2><p>September 07 · Monday</p></div>
+        <div class="module-kpi"><strong>64%</strong><span>7 / 11 complete</span></div>
+      </header>
+      <div class="task-capture"><span>＋</span><input placeholder="Add something to today's orbit…"><button>ADD</button></div>
+      <div class="mission-grid">
+        <div class="mission-column">
+          <div class="section-label">ACTIVE SATELLITES</div>
+          <div class="task-row"><span class="satellite"></span><div><strong>Finish proposal</strong><small>WORK · 14:30</small></div><span class="task-code">01</span></div>
+          <div class="task-row"><span class="satellite"></span><div><strong>French lesson 04</strong><small>STUDY</small></div><span class="task-code">02</span></div>
+          <div class="task-row done"><span class="satellite star"></span><div><strong>Review English vocabulary</strong><small>STUDY</small></div><span class="task-code">03</span></div>
+        </div>
+        <div class="constellation-card">
+          <div class="section-label">ACTIVITY CONSTELLATION</div>
+          <div class="star-map" id="star-map"></div>
+          <div class="constellation-meta"><span>23 active days</span><span>148 completed</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-english">
+      <header class="module-head">
+        <div><div class="eyebrow blue">ENGLISH OBSERVATORY</div><h2>Signal 0241</h2><p>Receive language from the world.</p></div>
+        <div class="module-kpi"><strong>42</strong><span>words captured</span></div>
+      </header>
+      <article class="signal-article">
+        <div class="article-meta"><span>THE ECONOMIST</span><span>SEPTEMBER 07 · 1,247 WORDS</span></div>
+        <h3>The world is sending you a signal.</h3>
+        <p>Language practice becomes more memorable when it feels less like a checklist and more like exploration. In Orbit, reading, listening and vocabulary become traces in the same personal universe.</p>
+        <p>Highlight a word and <button class="capture-word">capture it</button> into your Lexicon constellation.</p>
+      </article>
+      <div class="observatory-strip"><div><span>LISTENING</span><strong>Signal Receiver</strong></div><div><span>SPEAKING</span><strong>Transmission</strong></div><div><span>VOCABULARY</span><strong>Lexicon</strong></div></div>
+    </section>
+
+    <section class="view" id="view-french">
+      <header class="module-head">
+        <div><div class="eyebrow violet">EXPÉDITION FRANÇAISE</div><h2>Current position</h2><p>A long-distance journey from A1 to C2.</p></div>
+        <div class="module-kpi"><strong>A1</strong><span>orbit 04</span></div>
+      </header>
+      <div class="expedition-map">
+        <div class="level active"><span>A1</span><div class="level-track"><i style="width:58%"></i><b style="left:58%"></b></div><small>Current orbit</small></div>
+        <div class="level"><span>A2</span><div class="level-track"></div><small>Locked</small></div>
+        <div class="level"><span>B1</span><div class="level-track"></div><small>Deep space</small></div>
+        <div class="level"><span>B2</span><div class="level-track"></div><small>Deep space</small></div>
+        <div class="level"><span>C1</span><div class="level-track"></div><small>Deep space</small></div>
+        <div class="level"><span>C2</span><div class="level-track"></div><small>Destination</small></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/orbit-v2.js"></script>
+</body>
+</html>

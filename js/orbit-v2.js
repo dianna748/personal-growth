@@ -1,0 +1,13 @@
+(function(){
+  const $=(s,r=document)=>r.querySelector(s);const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+  const views=$$('.view');const nav=$$('.rail-item');
+  function show(name){views.forEach(v=>v.classList.toggle('active',v.id==='view-'+name));nav.forEach(n=>n.classList.toggle('active',n.dataset.view===name));window.scrollTo({top:0,behavior:'smooth'});}
+  $$('[data-view]').forEach(el=>el.addEventListener('click',()=>show(el.dataset.view)));
+  const d=new Date();const start=new Date(d.getFullYear(),0,0);const day=Math.floor((d-start)/86400000);$('#orbit-day').textContent=String(day).padStart(3,'0');
+  $('#today-date').textContent=d.toLocaleDateString('en-US',{month:'long',day:'2-digit'}).toUpperCase();$('#today-weekday').textContent=d.toLocaleDateString('en-US',{weekday:'long'}).toUpperCase();
+  const map=$('#star-map');if(map){for(let i=0;i<84;i++){const s=document.createElement('span');const r=Math.random();s.className='map-star '+(r>.91?'s3':r>.77?'s2':r>.53?'s1':'');map.appendChild(s);}}
+  const c=$('#starfield'),ctx=c.getContext('2d');let stars=[];function resize(){c.width=innerWidth*devicePixelRatio;c.height=innerHeight*devicePixelRatio;c.style.width=innerWidth+'px';c.style.height=innerHeight+'px';ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);stars=Array.from({length:Math.min(90,Math.floor(innerWidth/16))},()=>({x:Math.random()*innerWidth,y:Math.random()*innerHeight,r:Math.random()*1.1+.2,a:Math.random()*.38+.08,p:Math.random()*Math.PI*2}));}
+  function draw(t){ctx.clearRect(0,0,innerWidth,innerHeight);stars.forEach((s,i)=>{const tw=i%13===0?(Math.sin(t*.001+s.p)+1)*.12:0;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle='rgba(210,219,255,'+(s.a+tw)+')';ctx.fill();});requestAnimationFrame(draw);}resize();addEventListener('resize',resize);requestAnimationFrame(draw);
+  const stage=$('#universe-stage');if(stage&&matchMedia('(pointer:fine)').matches){stage.addEventListener('mousemove',e=>{const r=stage.getBoundingClientRect(),x=(e.clientX-r.left-r.width/2)/r.width,y=(e.clientY-r.top-r.height/2)/r.height;$$('.orbit-line',stage).forEach((o,i)=>o.style.transform=`translate(${x*(i+1)*5}px,${y*(i+1)*5}px) rotate(-10deg)`);});stage.addEventListener('mouseleave',()=>$$('.orbit-line',stage).forEach(o=>o.style.transform='rotate(-10deg)'));}
+  const capture=$('.capture-word');if(capture)capture.addEventListener('click',()=>{capture.textContent='captured ✦';capture.disabled=true;capture.style.color='var(--lav)';capture.style.borderColor='var(--lav)';});
+})();
