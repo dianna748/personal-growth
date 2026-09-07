@@ -84,8 +84,30 @@ const Sync = (function () {
       var todos = JSON.parse(todoRaw || '[]');
       if (!Array.isArray(todos)) return todoRaw;
       var tombstones = parseTombstones(tombstoneRaw);
+      var removed = Object.create(null);
+      Object.keys(tombstones).forEach(function (id) { if (tombstones[id]) removed[id] = true; });
+      // Legacy demo roots may already be absent. Follow their deleted IDs
+      // through English rollover links, including out-of-order nested copies.
+      // A Chinese task sharing an old link is not a demo and must survive.
+      var changed = true;
+      while (changed) {
+        changed = false;
+        todos.forEach(function (todo) {
+          if (!todo || todo.id == null || removed[String(todo.id)]) return;
+          var text = String(todo.text || '');
+          if (!/[A-Za-z]/.test(text) || /\p{Script=Han}/u.test(text)) return;
+          var isRollover = todo.rolledOver || todo.parentRollover != null || todo.rolloverFromId != null ||
+            (todo.taskChainId != null && String(todo.taskChainId) !== String(todo.id));
+          if (!isRollover) return;
+          var links = [todo.taskChainId, todo.parentRollover, todo.rolloverFromId];
+          if (links.some(function (id) { return id != null && removed[String(id)]; })) {
+            removed[String(todo.id)] = true;
+            changed = true;
+          }
+        });
+      }
       var filtered = todos.filter(function (todo) {
-        return !todo || todo.id == null || !tombstones[String(todo.id)];
+        return !todo || todo.id == null || !removed[String(todo.id)];
       });
       return JSON.stringify(filtered);
     } catch (e) { return todoRaw; }
@@ -144,19 +166,46 @@ const Sync = (function () {
   // Deletion is represented explicitly, rather than inferred from an item being
   // absent. This prevents an older cloud/device copy from resurrecting a task.
   function applyTodoTombstones() {
-    var storedCurrent = localStorage.getItem(TODO_KEY);
-    if (storedCurrent === null) return false;
-    var demoProtection = protectCleanedDemoRaw(storedCurrent);
-    if (demoProtection.ids.length) {
-      quarantineDemoRecords(demoProtection.records);
-      recordTodoTombstones(demoProtection.ids);
+    var changed = false;
+    var pendingTombstones = pushQueue[TOMBSTONE_KEY];
+    if (pendingTombstones) {
+      var localTombstones = localStorage.getItem(TOMBSTONE_KEY);
+      var mergedTombstones = mergeTombstones(pendingTombstones.value, localTombstones);
+      if (mergedTombstones !== localTombstones) {
+        writeLocal(TOMBSTONE_KEY, mergedTombstones, Date.now());
+        changed = true;
+      }
+      if (mergedTombstones !== pendingTombstones.value) {
+        queueValue(TOMBSTONE_KEY, mergedTombstones, Date.now());
+        changed = true;
+      }
     }
-    var filtered = filterTodosRaw(demoProtection.raw, localStorage.getItem(TOMBSTONE_KEY));
-    if (filtered === storedCurrent) return false;
-    var stamp = Date.now();
-    writeLocal(TODO_KEY, filtered, stamp);
-    if (isEnabled()) queueValue(TODO_KEY, filtered, stamp);
-    return true;
+    var storedCurrent = localStorage.getItem(TODO_KEY);
+    if (storedCurrent !== null) {
+      var demoProtection = protectCleanedDemoRaw(storedCurrent);
+      if (demoProtection.ids.length) {
+        quarantineDemoRecords(demoProtection.records);
+        recordTodoTombstones(demoProtection.ids);
+      }
+      var filtered = filterTodosRaw(demoProtection.raw, localStorage.getItem(TOMBSTONE_KEY));
+      if (filtered !== storedCurrent) {
+        var stamp = Date.now();
+        writeLocal(TODO_KEY, filtered, stamp);
+        if (isEnabled()) queueValue(TODO_KEY, filtered, stamp);
+        changed = true;
+      }
+    }
+    // A reload can restore an outbox written before cleanup, even when the
+    // task list is already clean (or absent). Sanitize that payload separately.
+    var pendingTodos = pushQueue[TODO_KEY];
+    if (pendingTodos) {
+      var filteredPending = filterTodosRaw(pendingTodos.value, localStorage.getItem(TOMBSTONE_KEY));
+      if (filteredPending !== pendingTodos.value) {
+        queueValue(TODO_KEY, filteredPending, Date.now());
+        changed = true;
+      }
+    }
+    return changed;
   }
 
   function markTodosDeleted(ids) {
@@ -265,6 +314,7 @@ const Sync = (function () {
       return r.json();
     }).then(function (rows) {
       var prefix = 's_' + cfg.syncCode + '|';
+      var mergedDeletions = false;
       for (var i = 0; i < rows.length; i++) {
         if (rows[i].key.indexOf(prefix) !== 0) continue; // only my namespace
         var orig = unprefKey(rows[i].key);
@@ -275,7 +325,16 @@ const Sync = (function () {
           localTs = parseFloat(localStorage.getItem(tsKey(orig)) || '0') || 0;
         } catch (e) {}
         if (!isSyncableKey(orig)) continue;
-        if (localVal === null) {
+        if (orig === TOMBSTONE_KEY) {
+          // Deletion sets are monotonic: timestamps must never hide a server
+          // deletion, including equal timestamps and clocks ahead on a device.
+          var mergedDeletes = mergeTombstones(rows[i].value, localVal);
+          writeLocal(orig, mergedDeletes, Math.max(cloudTs, localTs));
+          if (mergedDeletes !== rows[i].value || pushQueue[orig]) {
+            queueValue(orig, mergedDeletes, Date.now());
+            mergedDeletions = true;
+          }
+        } else if (localVal === null) {
           writeLocal(orig, rows[i].value, cloudTs);          // missing locally -> take cloud
         } else if (cloudTs > localTs) {
           if (localVal !== rows[i].value) rememberConflict(orig, localVal, rows[i].value, localTs, cloudTs);
@@ -289,7 +348,7 @@ const Sync = (function () {
         }
         // else: local is newer or equal -> keep local
       }
-      return applyTodoTombstones() ? flush() : null;
+      return (applyTodoTombstones() || mergedDeletions) ? flush() : null;
     }).then(function () {
       setStatus('idle');
     }).catch(function (err) { setStatus('offline'); throw err; });
@@ -297,6 +356,7 @@ const Sync = (function () {
 
   function flush() {
     if (!isEnabled()) return Promise.resolve();
+    applyTodoTombstones();
     var keys = Object.keys(pushQueue);
     if (keys.length === 0) return Promise.resolve();
     setStatus('syncing');
