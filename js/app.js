@@ -66,11 +66,12 @@ const App = (function () {
       item.addEventListener('click', () => {
         const module = item.dataset.module;
         // keep both the sidebar and the bottom bar in sync
-        allNavBtns.forEach(n => n.classList.remove('active'));
-        allNavBtns.forEach(n => { if (n.dataset.module === module) n.classList.add('active'); });
+        allNavBtns.forEach(n => { n.classList.remove('active'); n.removeAttribute('aria-current'); });
+        allNavBtns.forEach(n => { if (n.dataset.module === module) { n.classList.add('active'); n.setAttribute('aria-current', 'page'); } });
         document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
         var target = document.getElementById('module-' + module);
         if (target) target.classList.add('active');
+        if (window.innerWidth <= 900) window.scrollTo({ top: 0, behavior: 'auto' });
 
         if ('speechSynthesis' in window) {
           window.speechSynthesis.cancel();
@@ -137,6 +138,7 @@ const App = (function () {
     initNavigation();
     initSidebarToggle();
     TodoList.init();
+    if (window.Habits) Habits.init();
     English.init();
     French.init();
     // Wire up language switcher + apply current language to static UI

@@ -79,7 +79,7 @@ const BackupRestore = (function () {
     return {
       format: FORMAT,
       version: 2,
-      appVersion: '1.33',
+      appVersion: '1.39',
       exportedAt: new Date().toISOString(),
       data: collectData(storage)
     };

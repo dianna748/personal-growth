@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="css/style.css?v=1.37">
   <link rel="stylesheet" href="css/bloom-botanical.css?v=1.37">
   <link rel="stylesheet" href="css/animations.css?v=1.37">
+  <link rel="stylesheet" href="css/habits-mobile.css?v=1.39">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#25483d">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -247,6 +248,16 @@
           </div>
         </div>
       </div>
+
+      <section id="daily-habits" class="habits-card" aria-labelledby="habit-heading">
+        <header class="habits-header">
+          <div><span id="habit-date-label" class="habit-eyebrow">今天 · 每天一点积累</span><h2 id="habit-heading">每日习惯 <span id="habit-progress"></span></h2></div>
+          <button id="habit-add" class="habit-add" type="button">＋ 添加习惯</button>
+        </header>
+        <p id="habits-message" class="habit-error" role="status"></p>
+        <div id="habit-list"></div>
+        <details class="habit-manager"><summary>管理习惯 <span>归档不删除历史</span></summary><div id="habit-manager-list"></div></details>
+      </section>
 
       <!-- ===== Section: Daily Tasks ===== -->
       <div class="todo-section" id="section-daily">
@@ -825,9 +836,9 @@
     </section>
   </main>
 
-  <!-- Mobile bottom tab bar (app-style nav; replaces the sidebar on phones) -->
-  <nav class="mobile-bottom-nav" id="mobile-bottom-nav" aria-label="Bottom navigation">
-    <button class="bottom-nav-item active" data-module="todolist" type="button">
+  <!-- Mobile top navigation: stable location and visible current page. -->
+  <nav class="mobile-bottom-nav mobile-top-nav" id="mobile-bottom-nav" aria-label="页面切换">
+    <button class="bottom-nav-item active" data-module="todolist" type="button" aria-current="page">
       <span class="bn-icon">☑</span>
       <span class="bn-label">任务</span>
     </button>
@@ -844,6 +855,19 @@
       <span class="bn-label">同步</span>
     </button>
   </nav>
+
+  <dialog id="habit-editor" class="habit-editor" aria-labelledby="habit-editor-title">
+    <form id="habit-form">
+      <h2 id="habit-editor-title">添加每日习惯</h2>
+      <p class="habit-editor-hint">每天重新打卡，不积压到待办；历史记录一直保留。</p>
+      <label for="habit-name">习惯名称</label>
+      <input id="habit-name" name="habit-name" required maxlength="60" placeholder="例如：每天运动" autocomplete="off">
+      <label for="habit-note">目标说明（可选）</label>
+      <input id="habit-note" name="habit-note" maxlength="120" placeholder="例如：散步或拉伸 20 分钟" autocomplete="off">
+      <p id="habit-editor-error" class="habit-error" role="alert"></p>
+      <footer><button type="button" id="habit-editor-cancel" class="habit-text-button">取消</button><button type="submit" class="habit-add">保存习惯</button></footer>
+    </form>
+  </dialog>
 
   <!-- Manual vocab editor: opened only after the reader selects text -->
   <div class="modal-overlay" id="vocab-editor-overlay" hidden>
@@ -917,14 +941,15 @@
   <script src="data/content.js?v=1.37"></script>
   <script src="js/i18n.js?v=1.37"></script>
   <script src="js/fetcher.js?v=1.37"></script>
-  <script src="js/backup.js?v=1.37"></script>
-  <script src="js/todolist.js?v=1.37"></script>
+  <script src="js/backup.js?v=1.39"></script>
+  <script src="js/habits.js?v=1.39"></script>
+  <script src="js/todolist.js?v=1.39"></script>
   <script src="js/english.js?v=1.37"></script>
   <script src="js/french.js?v=1.37"></script>
-  <script src="js/sync.js?v=1.38"></script>
+  <script src="js/sync.js?v=1.39"></script>
   <script src="js/font-language.js?v=1.37"></script>
   <script src="js/notifications.js?v=1.37"></script>
-  <script src="js/app.js?v=1.37"></script>
+  <script src="js/app.js?v=1.39"></script>
     <!-- ============ Archive Page (v1.9: full-page sub-view, not a modal) ============ -->
     <div class="archive-page" id="archive-page" hidden>
       <div class="archive-page-inner">

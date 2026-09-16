@@ -784,6 +784,7 @@ const TodoList = (function () {
 
   /* ---- Rendering: render everything (single page, no tabs) ---- */
   function renderCurrentView() {
+    if (typeof window !== 'undefined' && window.Habits) window.Habits.setDate(viewDate);
     renderDateNavigator();
     renderHeatmap();
     renderChecklist();
@@ -2420,7 +2421,7 @@ const TodoList = (function () {
     });
   }
 
-  return { init, add, toggle, remove, startEdit,
+  return { init, add, toggle, remove, startEdit, setViewDate,
     startChangeCategory, commitCategoryChange,
     startChangePriority, commitPriorityChange, reorderTask, moveTaskByKeyboard,
     addSubtask, toggleSubtask, removeSubtask, startAddSubtask, commitSubtask, startEditSubtask,

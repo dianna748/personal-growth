@@ -303,16 +303,30 @@ const Sync = (function () {
     intercepting = false;
   }
 
+  // Daily check-ins grow over time; do not silently stop at PostgREST's row cap.
+  function fetchAllRows() {
+    var rows = [], offset = 0;
+    function page() {
+      var url = apiURL() + '?select=key,value,updated_at&order=key.asc&limit=500&offset=' + offset;
+      var ctrl = ('AbortController' in window) ? new AbortController() : null;
+      return withTimeout(fetch(url, { headers: hdrs(), signal: ctrl ? ctrl.signal : undefined }), FETCH_TIMEOUT).then(function (r) {
+        if (!r.ok) throw new Error('pull ' + r.status);
+        return r.json();
+      }).then(function (batch) {
+        if (!Array.isArray(batch)) throw new Error('Invalid sync response');
+        rows = rows.concat(batch);
+        if (batch.length < 500) return rows;
+        offset += batch.length;
+        return page();
+      });
+    }
+    return page();
+  }
+
   function pull() {
     if (!isEnabled()) return Promise.resolve();
     setStatus('syncing');
-    var url = apiURL() + '?select=key,value,updated_at';
-    var ctrl = ('AbortController' in window) ? new AbortController() : null;
-    var opt = { headers: hdrs(), signal: ctrl ? ctrl.signal : undefined };
-    return withTimeout(fetch(url, opt), FETCH_TIMEOUT).then(function (r) {
-      if (!r.ok) throw new Error('pull ' + r.status);
-      return r.json();
-    }).then(function (rows) {
+    return fetchAllRows().then(function (rows) {
       var prefix = 's_' + cfg.syncCode + '|';
       var mergedDeletions = false;
       for (var i = 0; i < rows.length; i++) {
@@ -417,13 +431,7 @@ const Sync = (function () {
   function safeFirstSync() {
     if (!isEnabled()) return Promise.resolve();
     setStatus('syncing');
-    var url = apiURL() + '?select=key,value,updated_at';
-    var ctrl = ('AbortController' in window) ? new AbortController() : null;
-    var opt = { headers: hdrs(), signal: ctrl ? ctrl.signal : undefined };
-    return withTimeout(fetch(url, opt), FETCH_TIMEOUT).then(function (r) {
-      if (!r.ok) throw new Error('forcePull ' + r.status);
-      return r.json();
-    }).then(function (rows) {
+    return fetchAllRows().then(function (rows) {
       var prefix = 's_' + cfg.syncCode + '|';
       for (var i = 0; i < rows.length; i++) {
         if (rows[i].key.indexOf(prefix) !== 0) continue;
