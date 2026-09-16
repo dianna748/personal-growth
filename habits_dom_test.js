@@ -27,9 +27,9 @@ const { JSDOM } = require('jsdom'), fs = require('node:fs'), assert = require('n
   click('.habit-check'); assert.equal(d.querySelector('.habit-check').getAttribute('aria-pressed'), 'false');
   click('.habit-check');
   for (const name of ['english','french','todolist']) {
-    click('.mobile-top-nav [data-module='+name+']');
+    click('.mobile-side-nav [data-module='+name+']');
     assert.equal(d.querySelector('.module.active').id, 'module-'+name);
-    assert.equal(d.querySelector('.mobile-top-nav [aria-current=page]').dataset.module, name);
+    assert.equal(d.querySelector('.mobile-side-nav [aria-current=page]').dataset.module, name);
   }
   click('#bn-sync'); assert.equal(d.getElementById('sync-modal-overlay').hidden,false); click('#sync-modal-close');
   click('.habit-manage-row button:last-child'); assert.equal(d.querySelectorAll('.habit-row').length,0);
